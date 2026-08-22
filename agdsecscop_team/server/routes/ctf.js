@@ -41,7 +41,7 @@ pool.query(`
 `).catch((err) => console.warn("ctf_attempts migration skipped:", err.message));
 
 // ── Multer config ─────────────────────────────────────
-const UPLOAD_DIR = path.join(__dirname, "../uploads/ctf");
+const UPLOAD_DIR = path.join(config.UPLOAD_ROOT, "ctf");
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const storage = multer.diskStorage({

@@ -4,7 +4,12 @@ const config = require("../config");
 const pool = new Pool({
   connectionString: config.DATABASE_URL,
   // Üretimde TLS zorunlu ve sertifika doğrulanır.
-  ssl: config.isProd ? { rejectUnauthorized: true } : false,
+  // RDS kullanıyorsanız DB_CA_CERT_PATH ile Amazon kök paketini verin;
+  // aksi hâlde doğrulama Node'un gömülü kök listesine bakar ve
+  // "self signed certificate in certificate chain" hatası alabilirsiniz.
+  ssl: config.isProd
+    ? { rejectUnauthorized: true, ...(config.DB_CA_CERT ? { ca: config.DB_CA_CERT } : {}) }
+    : false,
   max: 10,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 10_000,

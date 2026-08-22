@@ -55,10 +55,41 @@ if (errors.length) {
   process.exit(1);
 }
 
+/**
+ * RDS TLS kök sertifikası.
+ * Amazon RDS kendi ara CA'larını kullanır; Node'un gömülü kök listesiyle
+ * doğrulama sürüme/bölgeye göre başarısız olabilir. Bundle'ı açıkça vermek
+ * hem güvenli hem deterministiktir:
+ *   DB_CA_CERT_PATH=/etc/ssl/certs/rds-global-bundle.pem
+ * İndirme: https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem
+ */
+const DB_CA_CERT_PATH = (process.env.DB_CA_CERT_PATH || "").trim();
+let DB_CA_CERT = null;
+if (DB_CA_CERT_PATH) {
+  try {
+    DB_CA_CERT = require("fs").readFileSync(DB_CA_CERT_PATH, "utf8");
+  } catch (e) {
+    console.error(`
+✗ DB_CA_CERT_PATH okunamadı (${DB_CA_CERT_PATH}): ${e.message}
+`);
+    process.exit(1);
+  }
+}
+
+/**
+ * Yüklenen dosyaların kök dizini.
+ * Varsayılan `server/uploads` kod dizininin içindedir; her deploy'da kaybolur.
+ * Üretimde kalıcı bir birime (EBS mount, EFS) yönlendirin:
+ *   UPLOAD_ROOT=/var/lib/secscop/uploads
+ */
+const UPLOAD_ROOT = (process.env.UPLOAD_ROOT || require("path").join(__dirname, "uploads")).trim();
+
 module.exports = {
   isProd,
   PORT: Number(process.env.PORT || 3001),
   DATABASE_URL,
+  DB_CA_CERT,
+  UPLOAD_ROOT,
   JWT_SECRET,
   JWT_EXPIRES_IN: process.env.JWT_EXPIRES_IN || "12h",
   CORS_ORIGINS,

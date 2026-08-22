@@ -3,6 +3,7 @@ const path    = require("path");
 const fs      = require("fs");
 const multer  = require("multer");
 const pool    = require("../db/client");
+const config  = require("../config");
 const { authenticate, requireAdmin } = require("../middleware/auth");
 const { guardNumericParams } = require("../lib/validate");
 
@@ -48,7 +49,7 @@ function stripNotesIfStudent(row, req) {
   return o;
 }
 
-const UPLOAD_DIR = path.join(__dirname, "../uploads/modules");
+const UPLOAD_DIR = path.join(config.UPLOAD_ROOT, "modules");
 if (!fs.existsSync(UPLOAD_DIR)) fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const crypto  = require("crypto");
