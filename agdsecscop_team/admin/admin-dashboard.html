@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — Overview</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    .analytics-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px; }
+    .analytics-kpi {
+      border:1px solid var(--border);
+      border-radius:10px;
+      background:var(--bg);
+      padding:10px;
+    }
+    .analytics-kpi .v { font-family:var(--mono); font-size:1.05rem; font-weight:800; color:var(--text); }
+    .analytics-kpi .l { font-size:.7rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.04em; margin-top:2px; }
+    .tiny-bars { display:flex; flex-direction:column; gap:6px; }
+    .tiny-bar-row { display:grid; grid-template-columns:80px 1fr 34px; align-items:center; gap:8px; }
+    .tiny-bar-row .k { font-size:.73rem; color:var(--text-2); }
+    .tiny-bar-row .t { background:var(--border); border-radius:999px; height:7px; overflow:hidden; }
+    .tiny-bar-row .f { background:var(--red); height:100%; border-radius:999px; }
+    .tiny-bar-row .n { font-size:.72rem; font-family:var(--mono); color:var(--text-3); text-align:right; }
+  </style>
+</head>
+<body>
+<div class="admin-layout">
+
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <main class="admin-main">
+    <header class="topbar" id="topbar"></header>
+
+    <div class="page">
+
+      <!-- Notice -->
+      <div class="notice-bar" id="noticeBar" style="display:none;">
+        <span data-i18n="admin.dash.noticePrefix">⚡</span> <span id="noticeText"></span>
+        <a href="admin-students.html" style="color:var(--red);font-weight:600;margin-left:auto;" data-i18n="admin.dash.noticeLink">Öğrencilere git →</a>
+      </div>
+
+      <!-- Stats -->
+      <div class="grid-4">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--blue-light);color:var(--blue);">🎓</div>
+          <div class="stat-info">
+            <div class="stat-value" id="statStudents"><div class="spinner"></div></div>
+            <div class="stat-label" data-i18n="admin.dash.statStudents">Aktif Öğrenci</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--green-light);color:var(--green);">✅</div>
+          <div class="stat-info">
+            <div class="stat-value" id="statLabs"><div class="spinner"></div></div>
+            <div class="stat-label" data-i18n="admin.dash.statLabs">Tamamlanan Lab</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--orange-light);color:var(--orange);">🚩</div>
+          <div class="stat-info">
+            <div class="stat-value" id="statCtf"><div class="spinner"></div></div>
+            <div class="stat-label" data-i18n="admin.dash.statCtf">CTF Çözümü</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--red-light);color:var(--red);">📊</div>
+          <div class="stat-info">
+            <div class="stat-value" id="statAvg"><div class="spinner"></div></div>
+            <div class="stat-label" data-i18n="admin.dash.statAvg">Ort. İlerleme</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick actions -->
+      <div>
+        <div style="font-size:.95rem;font-weight:700;color:var(--text);margin-bottom:14px;" data-i18n="admin.dash.quickTitle">Hızlı İşlemler</div>
+        <div class="grid-4">
+          <a class="quick-action" href="admin-students.html">
+            <span class="qa-icon">🎓</span><span data-i18n="admin.nav.students">Öğrenciler</span>
+          </a>
+          <a class="quick-action" href="admin-announcements.html">
+            <span class="qa-icon">📢</span><span data-i18n="admin.nav.announcements">Duyurular</span>
+          </a>
+          <a class="quick-action" href="admin-leaderboard.html">
+            <span class="qa-icon">🏆</span><span data-i18n="admin.nav.leaderboard">Liderlik Tablosu</span>
+          </a>
+          <a class="quick-action" href="admin-ctf.html">
+            <span class="qa-icon">🚩</span><span data-i18n="admin.nav.ctf">CTF Görevleri</span>
+          </a>
+        </div>
+      </div>
+
+      <!-- Two column -->
+      <div class="two-col">
+        <div class="col-main">
+
+          <!-- Top students preview -->
+          <div class="card">
+            <div class="card-header">
+              <h3 data-i18n="admin.dash.cardStudents">Son Aktif Öğrenciler</h3>
+              <a href="admin-students.html" class="btn btn-ghost btn-sm" data-i18n="admin.dash.btnSeeAll">Tümünü gör →</a>
+            </div>
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-i18n="admin.dash.thStudent">Öğrenci</th>
+                    <th data-i18n="admin.dash.thProgress">İlerleme</th>
+                    <th data-i18n="admin.dash.thCtf">CTF Puanı</th>
+                    <th data-i18n="admin.dash.thStatus">Durum</th>
+                  </tr>
+                </thead>
+                <tbody id="studentsPreview">
+                  <tr><td colspan="4" style="text-align:center;padding:24px;"><div class="spinner"></div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Recent announcements preview -->
+          <div class="card">
+            <div class="card-header">
+              <h3 data-i18n="admin.dash.cardAnnouncements">Son Duyurular</h3>
+              <a href="admin-announcements.html" class="btn btn-ghost btn-sm" data-i18n="admin.dash.btnSeeAll">Tümünü gör →</a>
+            </div>
+            <div class="card-body" style="padding-top:6px;">
+              <div class="activity-feed" id="annPreview">
+                <div style="text-align:center;padding:16px;"><div class="spinner"></div></div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <div class="col-side">
+
+          <!-- Leaderboard top 5 -->
+          <div class="card">
+            <div class="card-header">
+              <h3 data-i18n="admin.dash.cardLb">Liderlik Tablosu</h3>
+              <a href="admin-leaderboard.html" class="btn btn-ghost btn-sm" data-i18n="admin.dash.btnSeeAllShort">Tümü →</a>
+            </div>
+            <div class="card-body" style="padding-top:4px;" id="lbPreview">
+              <div style="text-align:center;padding:16px;"><div class="spinner"></div></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
+              <h3 data-i18n="admin.dash.cardLbAnalytics">Liderlik Analizi</h3>
+              <a href="admin-students.html" class="btn btn-ghost btn-sm" data-i18n="admin.dash.btnStudents">Öğrenciler →</a>
+            </div>
+            <div class="card-body" style="padding-top:8px;" id="leaderAnalytics">
+              <div style="text-align:center;padding:16px;"><div class="spinner"></div></div>
+            </div>
+          </div>
+
+          <!-- Modules overview -->
+          <div class="card">
+            <div class="card-header">
+              <h3 data-i18n="admin.dash.cardModules">Müfredat</h3>
+              <a href="admin-modules.html" class="btn btn-ghost btn-sm" data-i18n="admin.dash.btnManage">Yönet →</a>
+            </div>
+            <div class="card-body" style="padding-top:4px;" id="modulesPreview">
+              <div style="text-align:center;padding:16px;"><div class="spinner"></div></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="theme-i18n.js"></script>
+<script src="admin-shared.js"></script>
+<script>
+  document.getElementById("sidebar").innerHTML = buildSidebar("dashboard");
+  document.getElementById("topbar").innerHTML  = buildTopbar(typeof t === "function" ? t("admin.nav.dashboard") : "Genel Bakış");
+  initTopbar(typeof t === "function" ? t("admin.nav.dashboard") : "Genel Bakış");
+  if (typeof t === "function") document.title = "SeCScop — " + t("admin.nav.dashboard");
+
+  const MEDALS = {1:"🥇",2:"🥈",3:"🥉"};
+  const DOTS   = ["var(--red)","var(--blue)","var(--green)","var(--orange)"];
+  const DAY_MS = 24 * 60 * 60 * 1000;
+
+  function lessonPct(st, totalLessons) {
+    if (!totalLessons) return Number(st.progress_pct || 0);
+    return Math.round((Number(st.completed_lessons || 0) / totalLessons) * 100);
+  }
+
+  function leaderComposite(st, totalLessons) {
+    const ctf = Number(st.ctf_score || 0);
+    const lp = lessonPct(st, totalLessons);
+    const examAvg = Number(st.exam_avg_score || 0);
+    const examAttempts = Number(st.exam_attempt_count || 0);
+    const examPass = Number(st.exam_pass_count || 0);
+    const passRate = examAttempts ? Math.round((examPass / examAttempts) * 100) : 0;
+    return (ctf * 0.5) + (lp * 2.5) + (examAvg * 2.0) + (passRate * 1.5);
+  }
+
+  function renderLeaderAnalytics(students, modules) {
+    const totalLessons = Array.isArray(modules)
+      ? modules.reduce((s, m) => s + Number(m.total_lessons || 0), 0)
+      : 0;
+    const ranked = [...students].sort((a, b) => leaderComposite(b, totalLessons) - leaderComposite(a, totalLessons));
+    const top = ranked.slice(0, 5);
+    const topAvg = top.length
+      ? Math.round(top.reduce((s, st) => s + lessonPct(st, totalLessons), 0) / top.length)
+      : 0;
+    const examActive = students.filter((s) => Number(s.exam_attempt_count || 0) > 0).length;
+    const now = Date.now();
+    const active24h = students.filter((s) => s.last_seen_at && (now - new Date(s.last_seen_at).getTime()) <= DAY_MS).length;
+    const progressBuckets = {
+      "0-24": 0,
+      "25-49": 0,
+      "50-74": 0,
+      "75-100": 0,
+    };
+    students.forEach((s) => {
+      const p = lessonPct(s, totalLessons);
+      if (p < 25) progressBuckets["0-24"] += 1;
+      else if (p < 50) progressBuckets["25-49"] += 1;
+      else if (p < 75) progressBuckets["50-74"] += 1;
+      else progressBuckets["75-100"] += 1;
+    });
+    const maxBucket = Math.max(1, ...Object.values(progressBuckets));
+    const bars = Object.entries(progressBuckets).map(([k, v]) => `
+      <div class="tiny-bar-row">
+        <div class="k">%${k}</div>
+        <div class="t"><div class="f" style="width:${Math.round((v / maxBucket) * 100)}%"></div></div>
+        <div class="n">${v}</div>
+      </div>
+    `).join("");
+    const topRows = top.map((s, i) => `
+      <div class="lb-row">
+        <div class="lb-rank">${MEDALS[i + 1] || i + 1}</div>
+        <div class="lb-name">${escapeHtml(s.name)}</div>
+        <div class="lb-pts">${Math.round(leaderComposite(s, totalLessons))}</div>
+      </div>
+    `).join("") || `<div style="font-size:.82rem;color:var(--text-3);">${typeof t === "function" ? t("admin.dash.emptyData") : "Veri yok."}</div>`;
+
+    document.getElementById("leaderAnalytics").innerHTML = `
+      <div class="analytics-grid">
+        <div class="analytics-kpi"><div class="v">${topAvg}%</div><div class="l">${typeof t === "function" ? t("admin.dash.anTop5Avg") : "Top 5 ort. ilerleme"}</div></div>
+        <div class="analytics-kpi"><div class="v">${active24h}</div><div class="l">${typeof t === "function" ? t("admin.dash.anActive24h") : "24s aktif öğrenci"}</div></div>
+        <div class="analytics-kpi"><div class="v">${examActive}</div><div class="l">${typeof t === "function" ? t("admin.dash.anExamTakers") : "Sınava giren"}</div></div>
+        <div class="analytics-kpi"><div class="v">${students.length ? Math.round((examActive / students.length) * 100) : 0}%</div><div class="l">${typeof t === "function" ? t("admin.dash.anExamRate") : "Sınav katılım oranı"}</div></div>
+      </div>
+      <div class="drawer-section-title" style="margin-bottom:8px;">${typeof t === "function" ? t("admin.dash.anProgressDist") : "İlerleme Dağılımı"}</div>
+      <div class="tiny-bars">${bars}</div>
+      <div class="drawer-section-title" style="margin:10px 0 6px;">${typeof t === "function" ? t("admin.dash.anComposite") : "Birleşik Liderlik Skoru (Top 5)"}</div>
+      ${topRows}
+    `;
+  }
+
+  async function reloadPage() {
+    const [summary, students, anns, lb, mods] = await Promise.all([
+      apiFetch("/students/stats/summary"),
+      apiFetch("/students"),
+      apiFetch("/announcements"),
+      apiFetch("/leaderboard"),
+      apiFetch("/modules"),
+    ]);
+
+    // Stats
+    document.getElementById("statStudents").textContent = summary.students ?? 0;
+    document.getElementById("statLabs").textContent     = summary.labs ?? 0;
+    document.getElementById("statCtf").textContent      = summary.ctf_solves ?? 0;
+    const avg = students.length
+      ? Math.round(students.reduce((s,st) => s+(st.progress_pct||0), 0) / students.length)
+      : 0;
+    document.getElementById("statAvg").textContent = `${avg}%`;
+
+    // Notice
+    const inactive = students.filter(s => s.progress_pct === 0).length;
+    if (inactive > 0) {
+      document.getElementById("noticeText").innerHTML =
+        typeof t === "function" ? t("admin.dash.noticeInactive", { n: inactive }) : `<strong>${inactive} öğrenci</strong> henüz hiç derse başlamadı.`;
+      document.getElementById("noticeBar").style.display = "flex";
+    }
+
+    // Students preview (top 5 by CTF score)
+    document.getElementById("studentsPreview").innerHTML = students.slice(0,5).map(s => {
+      const pct = s.progress_pct || 0;
+      return `<tr>
+        <td>
+          <div style="display:flex;align-items:center;gap:9px;">
+            <div class="avatar" style="background:${avatarColor(s.name)};color:#fff;width:30px;height:30px;font-size:.7rem;">${escapeHtml(initials(s.name))}</div>
+            <div>
+              <strong style="font-size:.86rem;">${escapeHtml(s.name)}</strong>
+              <div style="font-size:.74rem;color:var(--text-3);">${escapeHtml(s.email)}</div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <div style="display:flex;align-items:center;gap:7px;">
+            <div class="progress-bar" style="width:72px;"><div class="progress-fill" style="width:${pct}%;"></div></div>
+            <span style="font-size:.78rem;color:var(--text-2);">${pct}%</span>
+          </div>
+        </td>
+        <td><span style="font-family:var(--mono);font-weight:600;font-size:.85rem;">${s.ctf_score}</span></td>
+        <td>${statusBadge(pct)}</td>
+      </tr>`;
+    }).join("") || `<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-3);">${typeof t === "function" ? t("admin.dash.emptyStudents") : "Öğrenci yok."}</td></tr>`;
+
+    // Announcements preview (top 3)
+    document.getElementById("annPreview").innerHTML = anns.slice(0,3).map((a,i) => `
+      <div class="activity-item">
+        <div class="activity-dot" style="background:${DOTS[i%DOTS.length]};"></div>
+        <div>
+          <div style="font-size:.86rem;font-weight:600;color:var(--text);">${escapeHtml(a.title)}</div>
+          <div style="font-size:.79rem;color:var(--text-2);margin-top:2px;">${escapeHtml(String(a.body || "").slice(0,70))}${String(a.body || "").length>70?"…":""}</div>
+          <div style="font-size:.74rem;color:var(--text-3);margin-top:3px;font-family:var(--mono);">${relativeTime(a.created_at)}</div>
+        </div>
+      </div>
+    `).join("") || `<div style="font-size:.84rem;color:var(--text-3);padding:8px;">${typeof t === "function" ? t("admin.dash.emptyAnnouncements") : "Duyuru yok."}</div>`;
+
+    // Leaderboard preview (top 5)
+    document.getElementById("lbPreview").innerHTML = lb.slice(0,5).map(r => `
+      <div class="lb-row">
+        <div class="lb-rank">${MEDALS[r.rank]||r.rank}</div>
+        <div class="avatar" style="width:24px;height:24px;font-size:.65rem;background:${avatarColor(r.name)};color:#fff;flex-shrink:0;">${escapeHtml(initials(r.name))}</div>
+        <div class="lb-name">${escapeHtml(r.name)}</div>
+        <div class="lb-pts">${r.ctf_score} <span style="font-size:.7rem;color:var(--text-3);">${typeof t === "function" ? t("admin.dash.pointsShort") : "puan"}</span></div>
+      </div>
+    `).join("") || `<div style="font-size:.84rem;color:var(--text-3);padding:8px;">${typeof t === "function" ? t("admin.dash.emptyLb") : "Veri yok."}</div>`;
+
+    // Modules preview
+    document.getElementById("modulesPreview").innerHTML = mods.map(m => `
+      <div class="module-row">
+        <div class="module-num">${String(m.order_num).padStart(2,"0")}</div>
+        <div class="module-name">${escapeHtml(m.title)}</div>
+        <div class="module-count">${typeof t === "function" ? t("admin.dash.lessonsN", { n: m.total_lessons }) : `${m.total_lessons} ders`}</div>
+      </div>
+    `).join("");
+
+    // Leaderboard analytics
+    renderLeaderAnalytics(students, mods);
+  }
+
+  reloadPage();
+</script>
+</body>
+</html>

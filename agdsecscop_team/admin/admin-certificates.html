@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — Certificates</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    .cert-admin-table { width:100%; border-collapse:collapse; font-size:.86rem; }
+    .cert-admin-table th, .cert-admin-table td { padding:10px 12px; text-align:left; border-bottom:1px solid var(--border); }
+    .cert-admin-table th { color:var(--text-2); font-weight:600; font-size:.76rem; text-transform:uppercase; letter-spacing:.04em; }
+    .cert-admin-table tr:hover td { background:rgba(199,48,80,.04); }
+    .cert-list-toolbar {
+      display: none;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--border);
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+    .cert-list-toolbar.is-visible { display: flex; }
+    .cert-list-toolbar input[type="search"] {
+      flex: 1;
+      min-width: 200px;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-2);
+      background: var(--bg);
+      color: var(--text);
+      font-size: .85rem;
+    }
+    .cert-list-toolbar select {
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-2);
+      background: var(--bg);
+      color: var(--text);
+      font-size: .82rem;
+      min-width: 200px;
+    }
+    .cert-code { font-family:var(--mono, ui-monospace, monospace); font-size:.78rem; color:var(--text-2); }
+    .cert-layout { display:grid; grid-template-columns:minmax(280px,380px) 1fr; gap:20px; align-items:start; }
+    @media (max-width:900px) { .cert-layout { grid-template-columns:1fr; } }
+    .issue-card .field label { font-size:.78rem; }
+    .student-pick-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 8px;
+      padding: 8px 10px;
+      border-radius: var(--radius-sm);
+      background: rgba(199, 48, 80, 0.06);
+      border: 1px solid rgba(199, 48, 80, 0.15);
+      font-size: .78rem;
+      color: var(--text-2);
+    }
+    .student-pick-summary strong { color: var(--text); font-weight: 600; }
+    .student-pick-wrap {
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      max-height: min(56vh, 420px);
+      overflow-y: auto;
+      padding: 0;
+      font-size: .82rem;
+    }
+    .student-pick-item {
+      display: grid;
+      grid-template-columns: auto auto 1fr;
+      align-items: center;
+      gap: 10px 12px;
+      padding: 10px 12px;
+      margin: 0;
+      border-bottom: 1px solid var(--border);
+      cursor: pointer;
+      transition: background 0.12s ease;
+    }
+    .student-pick-item:last-child { border-bottom: none; }
+    .student-pick-item:hover { background: rgba(199, 48, 80, 0.05); }
+    .student-pick-item:has(input:focus-visible) {
+      outline: 2px solid rgba(199, 48, 80, 0.45);
+      outline-offset: -2px;
+    }
+    .student-pick-item input[type="checkbox"] {
+      width: 1rem;
+      height: 1rem;
+      flex-shrink: 0;
+      accent-color: var(--accent, #c73050);
+      cursor: pointer;
+    }
+    .student-pick-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: .72rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: #fff;
+      flex-shrink: 0;
+      box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08);
+    }
+    .student-pick-meta {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+    .student-pick-name {
+      font-weight: 600;
+      font-size: .86rem;
+      color: var(--text);
+      line-height: 1.25;
+      word-break: break-word;
+    }
+    .student-pick-email {
+      font-size: .74rem;
+      color: var(--text-3);
+      font-family: var(--mono, ui-monospace, monospace);
+      word-break: break-all;
+      line-height: 1.3;
+    }
+    .student-pick-actions { display:flex; gap:8px; margin-bottom:8px; flex-wrap:wrap; align-items:center; }
+    .student-pick-stats {
+      font-size: 0.68rem;
+      color: var(--text-3);
+      line-height: 1.4;
+      margin-top: 5px;
+      font-family: var(--mono, ui-monospace, monospace);
+    }
+    .student-pick-stats strong { color: var(--text-2); font-weight: 600; }
+    #previewCertModal .modal { max-width:920px; }
+    #previewCertModal .modal-body { max-height:min(85vh,900px); overflow:auto; }
+
+    /* Öğrenci sertifikası ile aynı görünüm (önizleme) */
+    #previewCertRoot.cert-surface {
+      --cert-red: #c73050;
+      --cert-red-glow: rgba(199, 48, 80, 0.45);
+      --cert-red-soft: rgba(199, 48, 80, 0.22);
+      --cert-ink: #f0edf2;
+      --cert-muted: rgba(240, 237, 242, 0.5);
+      --cert-bg: #0c090c;
+      --cert-bg2: #151018;
+      font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      background:
+        radial-gradient(ellipse 90% 60% at 80% -10%, var(--cert-red-soft), transparent 50%),
+        radial-gradient(ellipse 70% 50% at 10% 100%, rgba(199, 48, 80, 0.08), transparent 45%),
+        linear-gradient(165deg, var(--cert-bg2) 0%, var(--cert-bg) 100%);
+      color: var(--cert-ink);
+      border: 1px solid rgba(199, 48, 80, 0.35);
+      border-radius: 12px;
+      padding: 0;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 0 0 1px rgba(255,255,255,0.04), 0 16px 48px rgba(0,0,0,0.45);
+    }
+    #previewCertRoot.cert-surface::after {
+      content: ""; position: absolute; inset: 0;
+      background: repeating-linear-gradient(-12deg, transparent, transparent 28px, rgba(199,48,80,.025) 28px, rgba(199,48,80,.025) 29px);
+      pointer-events: none; opacity: 0.85;
+    }
+    #previewCertRoot .cert-surface__bar { height:4px; background:linear-gradient(90deg,transparent,var(--cert-red),var(--cert-red),transparent); }
+    #previewCertRoot .cert-hacker-inner { position:relative; padding:28px 32px 24px; z-index:1; }
+    #previewCertRoot .cert-shell {
+      font-family:"JetBrains Mono",monospace; font-size:.58rem; line-height:1.5; color:rgba(240,237,242,.55);
+      background:linear-gradient(145deg,rgba(0,0,0,.5),rgba(20,10,14,.4));
+      border-radius:8px; border:1px solid rgba(199,48,80,.22); border-left:3px solid var(--cert-red);
+      padding:10px 12px; margin:0 0 14px; overflow-x:auto; white-space:nowrap;
+    }
+    #previewCertRoot .cert-prompt { color:var(--cert-red); font-weight:600; }
+    #previewCertRoot .cert-cmd { color:rgba(255,255,255,.88); }
+    #previewCertRoot .cert-badge-row { text-align:center; margin:0 0 12px; }
+    #previewCertRoot .cert-badge {
+      display:inline-block; font-family:"JetBrains Mono",monospace; font-size:.58rem; font-weight:600; letter-spacing:.18em;
+      color:#0c090c; background:linear-gradient(135deg,#e85a7a,var(--cert-red)); padding:6px 14px; border-radius:999px; text-transform:uppercase;
+    }
+    #previewCertRoot .cert-main-center { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:22px 32px; align-items:center; max-width:720px; margin:0 auto; }
+    @media(max-width:640px){ #previewCertRoot .cert-main-center { grid-template-columns:1fr; } }
+    #previewCertRoot .cert-main-col { text-align:left; min-width:0; }
+    #previewCertRoot .cert-brand { font-size:.68rem; font-weight:700; letter-spacing:.2em; text-transform:uppercase; color:var(--cert-muted); margin-bottom:6px; }
+    #previewCertRoot .cert-brand span { color:var(--cert-red); }
+    #previewCertRoot .cert-headline { font-size:clamp(1.1rem,2.5vw,1.45rem); font-weight:800; color:#fff; margin:0 0 6px; text-shadow:0 0 32px var(--cert-red-glow); }
+    #previewCertRoot .cert-presented { font-family:"JetBrains Mono",monospace; font-size:.6rem; letter-spacing:.06em; text-transform:uppercase; color:var(--cert-muted); margin-bottom:10px; }
+    #previewCertRoot .cert-name { font-size:clamp(1.2rem,3vw,1.55rem); font-weight:700; color:#fff; margin:0 0 10px; border-bottom:1px solid rgba(199,48,80,.35); padding-bottom:10px; }
+    #previewCertRoot .cert-course { font-size:.92rem; font-weight:600; color:rgba(255,255,255,.92); }
+    #previewCertRoot .cert-sub { font-size:.82rem; color:var(--cert-muted); margin-top:6px; }
+    #previewCertRoot .cert-desc { font-size:.74rem; color:var(--cert-muted); margin-top:8px; line-height:1.55; }
+    #previewCertRoot .cert-footer { margin-top:18px; border-top:1px solid rgba(199,48,80,.2); padding-top:14px; max-width:720px; margin-left:auto; margin-right:auto; }
+    #previewCertRoot .cert-date { font-family:"JetBrains Mono",monospace; font-size:.65rem; color:var(--cert-muted); }
+    #previewCertRoot .cert-date::before { content:"// "; color:var(--cert-red); }
+    #previewCertRoot .cert-issuer { font-size:.68rem; color:var(--cert-muted); margin-top:8px; }
+    #previewCertRoot .cert-issuer strong { display:block; color:var(--cert-ink); font-size:.82rem; margin-top:4px; font-weight:700; }
+    #previewCertRoot .cert-qr-frame { display:inline-block; padding:8px; border-radius:10px; background:#fff; box-shadow:0 0 0 1px rgba(199,48,80,.35); }
+    #previewCertRoot .cert-verify-label { font-family:"JetBrains Mono",monospace; font-size:.5rem; color:var(--cert-muted); margin-bottom:6px; }
+    #previewCertRoot .cert-verify-code { font-family:"JetBrains Mono",monospace; font-size:.52rem; color:var(--cert-muted); max-width:140px; margin:6px auto 0; word-break:break-all; }
+    #previewCertRoot .cert-status-strip { margin-top:12px; padding:10px 12px; background:rgba(0,0,0,.4); border:1px solid rgba(199,48,80,.28); border-radius:8px; font-family:"JetBrains Mono",monospace; font-size:.55rem; color:var(--cert-muted); }
+    #previewCertRoot .cert-status-strip strong { color:var(--cert-red); }
+  </style>
+</head>
+<body>
+<div class="admin-layout">
+
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <main class="admin-main">
+    <header class="topbar" id="topbar"></header>
+
+    <div class="page">
+
+      <div class="cert-layout">
+        <div class="card issue-card">
+          <div class="card-header"><h3 data-i18n="admin.cert.issueTitle">Yeni sertifika</h3></div>
+          <div class="card-body">
+            <div class="field">
+              <label><span data-i18n="admin.cert.labelStudents">Öğrenciler</span> <span style="font-weight:400;color:var(--text-2);" data-i18n="admin.cert.studentsHint">(birden fazla seçebilirsiniz; başarı sırasına göre listelenir)</span></label>
+              <div class="student-pick-toolbar" aria-live="polite">
+                <span id="issueStudentPickSummary" class="student-pick-summary"><strong>0</strong> kayıt · <strong>0</strong> seçili</span>
+              </div>
+              <div class="student-pick-actions">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="pickStudentsAll()" data-i18n="admin.cert.pickAll">Tümünü seç</button>
+                <button type="button" class="btn btn-ghost btn-sm" onclick="pickStudentsClear()" data-i18n="admin.cert.pickClear">Seçimi temizle</button>
+              </div>
+              <input type="search" id="issueStudentFilter" data-i18n-placeholder="admin.cert.issueFilterPh" placeholder="İsim veya e-posta ile süz…" style="width:100%;margin-bottom:8px;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border-2);background:var(--bg);color:var(--text);font-size:.85rem;" oninput="filterIssueStudents(this.value)" autocomplete="off">
+              <div class="student-pick-wrap" id="issueStudentList" role="group" data-i18n-title="admin.cert.issueListAria" aria-label="Öğrenci listesi"><div style="padding:12px;color:var(--text-2);" data-i18n="common.loading">Yükleniyor…</div></div>
+            </div>
+            <div class="field">
+              <label data-i18n="admin.cert.labelCourseTitle">Başlık</label>
+              <input type="text" id="issueTitle" data-i18n-placeholder="admin.cert.phTitle" placeholder="Örn. Siber Güvenlik Temelleri" maxlength="500">
+            </div>
+            <div class="field">
+              <label data-i18n="admin.cert.labelSubtitle">Alt başlık (isteğe bağlı)</label>
+              <input type="text" id="issueSubtitle" data-i18n-placeholder="admin.cert.phSubtitle" placeholder="Örn. Başarıyla tamamlandı">
+            </div>
+            <div class="field">
+              <label data-i18n="admin.cert.labelDesc">Açıklama (isteğe bağlı)</label>
+              <textarea id="issueDesc" rows="3" data-i18n-placeholder="admin.cert.phDesc" placeholder="Kısa açıklama…" style="width:100%;background:var(--bg);border:1px solid var(--border-2);border-radius:var(--radius-sm);padding:10px;font-size:.88rem;color:var(--text);resize:vertical;font-family:inherit;"></textarea>
+            </div>
+            <div class="field">
+              <label><span data-i18n="admin.cert.labelSig">İmza satırı</span> <span style="font-weight:400;color:var(--text-2);" data-i18n="admin.cert.sigOptional">(isteğe bağlı)</span></label>
+              <input type="text" id="issueIssuerSig" maxlength="200" data-i18n-placeholder="admin.cert.phSig" placeholder="Boş bırakılırsa hesabınızın adı veya SeCScop Akademi kullanılır">
+            </div>
+            <div id="issueErr" class="badge badge-red" style="display:none;padding:8px;border-radius:8px;font-size:.82rem;"></div>
+            <p style="font-size:.76rem;color:var(--text-3);margin:10px 0 0;" data-i18n="admin.cert.hintPreview">Önce önizleyin; beğendiğinizde oluşturun.</p>
+            <button type="button" class="btn btn-primary" style="width:100%;margin-top:10px;" id="previewIssueBtn" onclick="openPreviewIssue()" data-i18n="admin.cert.btnPreview">Önizle</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+            <h3><span data-i18n="admin.cert.listTitle">Verilen sertifikalar</span> <span class="badge badge-gray" id="certCount">0</span></h3>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="reloadPage()" data-i18n="common.refresh">Yenile</button>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div id="certToolbar" class="cert-list-toolbar" data-i18n-title="admin.cert.toolbarAria" aria-label="Sertifika listesi filtreleri">
+              <input type="search" id="certListSearch" data-i18n-placeholder="admin.cert.searchListPh" placeholder="İsim, e-posta, başlık veya doğrulama kodu ara…" autocomplete="off">
+              <label style="display:flex;align-items:center;gap:8px;font-size:.82rem;color:var(--text-2);white-space:nowrap;">
+                <span data-i18n="admin.cert.sortDateLabel">Tarih</span>
+                <select id="certListSort" data-i18n-title="admin.cert.sortDateTitle" title="Tarihe göre sırala">
+                  <option value="date_desc" data-i18n="admin.cert.sortNewOld">Yeniden eskiye</option>
+                  <option value="date_asc" data-i18n="admin.cert.sortOldNew">Eskiden yeniye</option>
+                </select>
+              </label>
+            </div>
+            <div id="certTableWrap" style="overflow-x:auto;">
+              <div style="text-align:center;padding:40px;"><div class="spinner"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="previewCertModal">
+  <div class="modal" style="max-width:920px;">
+    <div class="modal-header">
+      <h3 data-i18n="admin.cert.modalPreviewTitle">Sertifika önizlemesi</h3>
+      <button type="button" class="modal-close" onclick="closeModal('previewCertModal')">✕</button>
+    </div>
+    <div class="modal-body" style="padding-top:12px;">
+      <p id="previewBatchNote" style="font-size:.88rem;color:var(--text-2);margin:0 0 14px;line-height:1.45;"></p>
+      <div class="cert-surface" id="previewCertRoot">
+        <div class="cert-surface__bar" aria-hidden="true"></div>
+        <div class="cert-hacker-inner">
+          <div class="cert-shell" aria-hidden="true">
+            <span class="cert-prompt">root@secscop-akademi:~#</span> <span class="cert-cmd">./opt/secscop/bin/certify --issuer=secscop --verify-chain --audit</span>
+          </div>
+          <div class="cert-badge-row"><span class="cert-badge">Doğrulanmış · Verified</span></div>
+          <div class="cert-main-center">
+            <div class="cert-main-col">
+              <div class="cert-brand">SeC<span>Scop</span> Akademi</div>
+              <p class="cert-headline">Öğrenim sertifikası</p>
+              <p class="cert-presented">Bu belge aşağıdaki kişiye verilmiştir</p>
+              <h2 class="cert-name" id="pvName">—</h2>
+              <div class="cert-title-block">
+                <div class="cert-course" id="pvCourse">—</div>
+                <div class="cert-sub" id="pvSub" style="display:none;"></div>
+                <div class="cert-desc" id="pvDesc" style="display:none;"></div>
+              </div>
+            </div>
+            <div class="cert-qr-col">
+              <div class="cert-qr-wrap" style="text-align:center;">
+                <div class="cert-verify-label">Doğrulama QR (örnek)</div>
+                <div class="cert-qr-frame">
+                  <canvas id="pvQrCanvas" width="128" height="128" aria-hidden="true"></canvas>
+                </div>
+                <div class="cert-verify-code" id="pvCode">ONIZLEME</div>
+              </div>
+            </div>
+          </div>
+          <div class="cert-footer">
+            <div class="cert-date" id="pvDate">—</div>
+            <div class="cert-issuer">İmza<br><strong id="pvIssuer">SeCScop Akademi</strong></div>
+          </div>
+          <div class="cert-status-strip">
+            <strong>DURUM:</strong> Önizleme · <strong>KOD:</strong> <span id="pvSig">oluşturulunca atanır</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" onclick="closeModal('previewCertModal')" data-i18n="common.cancel">İptal</button>
+      <button type="button" class="btn btn-primary" id="previewConfirmCreateBtn" onclick="confirmCreateFromPreview()" data-i18n="admin.cert.btnCreate">Sertifika oluştur</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="editCertModal">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <h3 data-i18n="admin.cert.modalEditTitle">Sertifikayı düzenle</h3>
+      <button class="modal-close" onclick="closeModal('editCertModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field">
+        <label data-i18n="admin.cert.labelRecipient">Öğrenci (alıcı)</label>
+        <select id="editUserId" style="width:100%;padding:10px;border-radius:var(--radius-sm);border:1px solid var(--border-2);background:var(--bg);color:var(--text);font-size:.88rem;"></select>
+      </div>
+      <div class="field">
+        <label data-i18n="admin.cert.labelCourseTitle">Başlık</label>
+        <input type="text" id="editTitle" maxlength="500">
+      </div>
+      <div class="field">
+        <label data-i18n="admin.cert.labelSubtitle">Alt başlık</label>
+        <input type="text" id="editSubtitle" data-i18n-placeholder="admin.cert.phSubtitleOpt" placeholder="İsteğe bağlı">
+      </div>
+      <div class="field">
+        <label data-i18n="admin.cert.labelDescOnly">Açıklama</label>
+        <textarea id="editDesc" rows="3" style="width:100%;background:var(--bg);border:1px solid var(--border-2);border-radius:var(--radius-sm);padding:10px;font-size:.88rem;color:var(--text);resize:vertical;font-family:inherit;"></textarea>
+      </div>
+      <div class="field">
+        <label><span data-i18n="admin.cert.labelSig">İmza satırı</span> <span style="font-weight:400;color:var(--text-3);" data-i18n="admin.cert.sigOptional">(isteğe bağlı)</span></label>
+        <input type="text" id="editIssuerSig" maxlength="200" data-i18n-placeholder="admin.cert.phSigEdit" placeholder="Boş bırakılırsa hesap adı / varsayılan">
+      </div>
+      <p style="font-size:.76rem;color:var(--text-3);margin:0;" data-i18n="admin.cert.codeUnchanged">Doğrulama kodu değişmez.</p>
+      <div id="editCertErr" class="badge badge-red" style="display:none;margin-top:10px;padding:8px;border-radius:8px;font-size:.82rem;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('editCertModal')" data-i18n="common.cancel">İptal</button>
+      <button class="btn btn-primary" id="editCertSaveBtn" onclick="submitEditCert()" data-i18n="common.save">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="deleteCertModal">
+  <div class="modal" style="max-width:400px;">
+    <div class="modal-header">
+      <h3 data-i18n="admin.cert.modalDelTitle">Sertifikayı sil</h3>
+      <button class="modal-close" onclick="closeModal('deleteCertModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="delCertMsg" style="font-size:.9rem;color:var(--text-2);"></p>
+      <p class="cert-code" id="delCertCode" style="margin-top:8px;" aria-live="polite"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('deleteCertModal')" data-i18n="common.cancel">İptal</button>
+      <button class="btn btn-danger" id="confirmDelCertBtn" onclick="confirmDeleteCert()" data-i18n="common.delete">Sil</button>
+    </div>
+  </div>
+</div>
+
+<!-- TODO: internet erişimi olan bir ortamda SRI hash'i sabitleyin:
+     curl -s https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js | openssl dgst -sha384 -binary | openssl base64 -A
+     ve integrity="sha384-..." olarak ekleyin. -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="theme-i18n.js"></script>
+<script src="admin-shared.js"></script>
+<script>
+  document.getElementById("sidebar").innerHTML = buildSidebar("certificates");
+  document.getElementById("topbar").innerHTML  = buildTopbar(typeof t === "function" ? t("admin.nav.certificates") : "Sertifikalar");
+  initTopbar(typeof t === "function" ? t("admin.nav.certificates") : "Sertifikalar");
+  if (typeof t === "function") document.title = "SeCScop — " + t("admin.nav.certificates");
+  setupModalOverlayClose();
+
+  let students = [];
+  /** Seçilen öğrenci id'leri (filtre değişince korunur) */
+  const issueSelectedIds = new Set();
+
+  /** Sonuçlar sayfasındakiyle aynı başarı skoru (modül %, CTF normalize, sınav geçiş); yüksekten düşüğe. */
+  function sortStudentsBySuccess(rows) {
+    const raw = Array.isArray(rows) ? [...rows] : [];
+    if (!raw.length) return raw;
+    const maxCtf = Math.max(1, ...raw.map((r) => Number(r.ctf_score || 0)));
+    raw.sort((a, b) => {
+      const score = (r) => {
+        const ctf = Number(r.ctf_score || 0);
+        const prog = Number(r.progress_pct || 0);
+        const att = Number(r.exam_attempt_count || 0);
+        const pass = Number(r.exam_pass_count || 0);
+        const passRate = att > 0 ? (pass / att) * 100 : 0;
+        const ctfNorm = (ctf / maxCtf) * 100;
+        return Math.round(prog * 0.45 + ctfNorm * 0.35 + passRate * 0.2);
+      };
+      const sa = score(a);
+      const sb = score(b);
+      return (
+        sb - sa ||
+        Number(b.progress_pct || 0) - Number(a.progress_pct || 0) ||
+        Number(b.ctf_score || 0) - Number(a.ctf_score || 0) ||
+        Number(b.id) - Number(a.id)
+      );
+    });
+    return raw;
+  }
+
+  function studentSuccessRank(studentId) {
+    const idx = students.findIndex((s) => Number(s.id) === Number(studentId));
+    return idx >= 0 ? idx + 1 : null;
+  }
+  let certCache = [];
+  let deleteCertId = null;
+  let editCertId = null;
+
+  function pruneIssueSelection() {
+    const valid = new Set(students.map((s) => Number(s.id)));
+    for (const id of issueSelectedIds) {
+      if (!valid.has(id)) issueSelectedIds.delete(id);
+    }
+  }
+
+  function updateIssueStudentPickSummary() {
+    const el = document.getElementById("issueStudentPickSummary");
+    if (!el) return;
+    const total = students.length;
+    const n = issueSelectedIds.size;
+    el.innerHTML = typeof t === "function"
+      ? t("admin.cert.pickSummary", { total, n })
+      : `<strong>${total}</strong> kayıt · <strong>${n}</strong> seçili`;
+  }
+
+  /** Seçili öğrenciler, başarı sırasına göre (önizleme ve toplu oluşturma sırası) */
+  function getSelectedStudentsSorted() {
+    return sortStudentsBySuccess(students.filter((s) => issueSelectedIds.has(Number(s.id))));
+  }
+
+  function certMatchesQuery(c, q) {
+    if (!q) return true;
+    const hay = [
+      c.recipient_name,
+      c.recipient_email,
+      c.title,
+      c.verification_code,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+    return hay.includes(q);
+  }
+
+  function sortCertRows(rows, order) {
+    const copy = [...rows];
+    copy.sort((a, b) => {
+      const ta = a.issued_at ? new Date(a.issued_at).getTime() : 0;
+      const tb = b.issued_at ? new Date(b.issued_at).getTime() : 0;
+      return order === "date_asc" ? ta - tb : tb - ta;
+    });
+    return copy;
+  }
+
+  function renderCertTable() {
+    const wrap = document.getElementById("certTableWrap");
+    const toolbar = document.getElementById("certToolbar");
+    const list = Array.isArray(certCache) ? certCache : [];
+    const searchEl = document.getElementById("certListSearch");
+    const sortEl = document.getElementById("certListSort");
+    const q = searchEl ? searchEl.value.trim().toLowerCase() : "";
+    const order = sortEl && sortEl.value === "date_asc" ? "date_asc" : "date_desc";
+
+    if (!list.length) {
+      if (toolbar) toolbar.classList.remove("is-visible");
+      document.getElementById("certCount").textContent = "0";
+      wrap.innerHTML = `<div class="empty-state" style="padding:32px;"><span class="empty-icon">📜</span><p>${typeof t === "function" ? t("admin.cert.emptyNone") : "Henüz sertifika yok."}</p></div>`;
+      return;
+    }
+
+    if (toolbar) toolbar.classList.add("is-visible");
+
+    const filtered = q ? list.filter((c) => certMatchesQuery(c, q)) : list;
+    const rows = sortCertRows(filtered, order);
+
+    const total = list.length;
+    const shown = rows.length;
+    document.getElementById("certCount").textContent = shown === total ? String(shown) : `${shown} / ${total}`;
+
+    if (!rows.length) {
+      wrap.innerHTML = `<div class="empty-state" style="padding:32px;"><span class="empty-icon">🔍</span><p>${typeof t === "function" ? t("admin.cert.emptySearch") : "Aramanıza uygun sertifika yok."}</p><p style="font-size:.82rem;color:var(--text-3);margin-top:8px;">${typeof t === "function" ? t("admin.cert.emptySearchHint") : "Filtreyi temizleyip tekrar deneyin."}</p></div>`;
+      return;
+    }
+
+    wrap.innerHTML = `
+      <table class="cert-admin-table">
+        <thead>
+          <tr>
+            <th>${typeof t === "function" ? t("admin.cert.thDate") : "Tarih"}</th>
+            <th>${typeof t === "function" ? t("admin.cert.thRecipient") : "Alıcı"}</th>
+            <th>${typeof t === "function" ? t("admin.cert.thTitle") : "Başlık"}</th>
+            <th>${typeof t === "function" ? t("admin.cert.thCode") : "Doğrulama kodu"}</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map(c => `
+            <tr>
+              <td>${formatDate(c.issued_at)}</td>
+              <td>${escapeHtml(c.recipient_name || "")}<div style="font-size:.72rem;color:var(--text-3);">${escapeHtml(c.recipient_email || "")}</div></td>
+              <td>${escapeHtml(c.title || "")}</td>
+              <td><span class="cert-code">${escapeHtml(c.verification_code || "")}</span></td>
+              <td style="text-align:right;white-space:nowrap;">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="openEditCert(${c.id})">${typeof t === "function" ? t("admin.cert.btnEdit") : "Düzenle"}</button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="askDeleteCert(${c.id})">${typeof t === "function" ? t("common.delete") : "Sil"}</button>
+              </td>
+            </tr>
+          `).join("")}
+        </tbody>
+      </table>`;
+  }
+
+  async function reloadPage() {
+    const wrap = document.getElementById("certTableWrap");
+    const toolbar = document.getElementById("certToolbar");
+    if (toolbar) toolbar.classList.remove("is-visible");
+    wrap.innerHTML = `<div style="text-align:center;padding:40px;"><div class="spinner"></div></div>`;
+
+    const [studentList, certs] = await Promise.all([
+      apiFetch("/students"),
+      apiFetch("/certificates"),
+    ]);
+
+    students = sortStudentsBySuccess(Array.isArray(studentList) ? studentList : []);
+    certCache = Array.isArray(certs) ? certs : [];
+    pruneIssueSelection();
+    renderIssueStudentPick(students);
+    fillEditUserSelect();
+    renderCertTable();
+  }
+
+  function studentPerformanceLine(s) {
+    let titles = s.completed_module_titles;
+    if (titles == null) titles = [];
+    if (typeof titles === "string") {
+      try {
+        titles = JSON.parse(titles);
+      } catch {
+        titles = [];
+      }
+    }
+    if (!Array.isArray(titles)) titles = [];
+    const modNames =
+      titles.length > 0
+        ? titles.map((t) => escapeHtml(String(t))).join(", ")
+        : `<span style="opacity:.72">${typeof t === "function" ? t("admin.cert.noModulesDone") : "Henüz tamamlanan modül yok."}</span>`;
+    const rank = s.ctf_rank != null && Number.isFinite(Number(s.ctf_rank)) ? Number(s.ctf_rank) : null;
+    const total = students.length;
+    let ctfRankHtml = "—";
+    if (rank != null) {
+      ctfRankHtml = `<strong>${rank}</strong>`;
+      if (total > 0) ctfRankHtml += ` / ${total}`;
+    }
+    const sr = studentSuccessRank(s.id);
+    let genRankHtml = "—";
+    if (sr != null && total > 0) {
+      genRankHtml = `<strong>#${sr}</strong> / ${total}`;
+    }
+    return `<div class="student-pick-stats">${typeof t === "function" ? t("admin.cert.perfLine", { genRank: genRankHtml, mods: modNames, ctfRank: ctfRankHtml }) : `Genel başarı sırası: ${genRankHtml} · Tamamlanan modüller: ${modNames} · CTF sırası: ${ctfRankHtml}`}</div>`;
+  }
+
+  // escapeHtml / escapeAttr / safeUrl / escapeJsString artik admin-shared.js'te
+  // tanimli (tirnak ve backtick karakterlerini de kacisan guclu surum).
+
+  function renderIssueStudentPick(list, filter) {
+    const wrap = document.getElementById("issueStudentList");
+    const q = (filter || "").trim().toLowerCase();
+    let rows = Array.isArray(list) ? [...list] : [];
+    if (q) {
+      rows = rows.filter((s) => {
+        const name = (s.name || "").toLowerCase();
+        const email = (s.email || "").toLowerCase();
+        return name.includes(q) || email.includes(q);
+      });
+    }
+    rows = sortStudentsBySuccess(rows);
+
+    if (!rows.length) {
+      const msg = !list.length
+        ? (typeof t === "function" ? t("admin.cert.noStudentsReg") : "Kayıtlı öğrenci yok.")
+        : q
+          ? (typeof t === "function" ? t("admin.cert.noStudentsFilter") : "Filtreye uygun öğrenci yok.")
+          : (typeof t === "function" ? t("admin.cert.noStudents") : "Öğrenci yok.");
+      wrap.innerHTML = `<div style="padding:16px;color:var(--text-2);text-align:center;line-height:1.45;">${msg}</div>`;
+      updateIssueStudentPickSummary();
+      return;
+    }
+
+    wrap.innerHTML = rows
+      .map((s) => {
+        const id = Number(s.id);
+        const ini = initials(s.name);
+        const bg = avatarColor(s.name);
+        const checked = issueSelectedIds.has(id) ? " checked" : "";
+        const statsHtml = studentPerformanceLine(s);
+        return `
+      <label class="student-pick-item">
+        <input type="checkbox" name="issueStudent" value="${s.id}"${checked} />
+        <span class="student-pick-avatar" style="background:${bg};" aria-hidden="true">${escapeHtml(ini)}</span>
+        <span class="student-pick-meta">
+          <span class="student-pick-name">${escapeHtml(s.name || "—")}</span>
+          <span class="student-pick-email">${escapeHtml(s.email || "")}</span>
+          ${statsHtml}
+        </span>
+      </label>`;
+      })
+      .join("");
+    updateIssueStudentPickSummary();
+  }
+
+  function filterIssueStudents(v) {
+    renderIssueStudentPick(students, v);
+  }
+
+  function pickStudentsAll() {
+    students.forEach((s) => issueSelectedIds.add(Number(s.id)));
+    const f = document.getElementById("issueStudentFilter");
+    renderIssueStudentPick(students, f ? f.value : "");
+  }
+
+  function pickStudentsClear() {
+    issueSelectedIds.clear();
+    const f = document.getElementById("issueStudentFilter");
+    renderIssueStudentPick(students, f ? f.value : "");
+  }
+
+  function fillEditUserSelect() {
+    const sel = document.getElementById("editUserId");
+    if (!sel) return;
+    sel.innerHTML = students
+      .map((s) => `<option value="${s.id}">${escapeHtml(s.name)} — ${escapeHtml(s.email)}</option>`)
+      .join("");
+  }
+
+  function openEditCert(id) {
+    const c = certCache.find((x) => Number(x.id) === Number(id));
+    if (!c) return;
+    editCertId = c.id;
+    fillEditUserSelect();
+    document.getElementById("editUserId").value = String(c.user_id);
+    document.getElementById("editTitle").value = c.title || "";
+    document.getElementById("editSubtitle").value = c.subtitle || "";
+    document.getElementById("editDesc").value = c.description || "";
+    document.getElementById("editIssuerSig").value = c.issuer_signature || "";
+    hideError("editCertErr");
+    openModal("editCertModal");
+  }
+
+  async function submitEditCert() {
+    const btn = document.getElementById("editCertSaveBtn");
+    hideError("editCertErr");
+    const user_id = parseInt(document.getElementById("editUserId").value, 10);
+    const title = document.getElementById("editTitle").value.trim();
+    const subtitle = document.getElementById("editSubtitle").value.trim();
+    const description = document.getElementById("editDesc").value.trim();
+    const issuerSigRaw = document.getElementById("editIssuerSig").value.trim();
+    if (!title) {
+      showError("editCertErr", typeof t === "function" ? t("admin.cert.errTitleRequired") : "Başlık zorunludur.");
+      return;
+    }
+    btn.textContent = typeof t === "function" ? t("common.saving") : "Kaydediliyor…";
+    btn.disabled = true;
+    const res = await fetch(`${API}/certificates/${editCertId}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id,
+        title,
+        subtitle: subtitle || null,
+        description: description || null,
+        issuer_signature: issuerSigRaw || null,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    btn.textContent = typeof t === "function" ? t("common.save") : "Kaydet";
+    btn.disabled = false;
+    if (!res.ok) {
+      showError("editCertErr", data.error || (typeof t === "function" ? t("admin.students.errUpdate") : "Güncellenemedi."));
+      return;
+    }
+    closeModal("editCertModal");
+    toast(typeof t === "function" ? t("admin.cert.toastUpdated") : "Sertifika güncellendi.");
+    reloadPage();
+  }
+
+  function issueSignaturePreviewText() {
+    const raw = document.getElementById("issueIssuerSig").value.trim();
+    if (raw) return raw;
+    if (typeof _user !== "undefined" && _user && _user.name) return _user.name;
+    return typeof t === "function" ? t("admin.cert.defaultIssuer") : "SeCScop Akademi";
+  }
+
+  function getPreviewVerifyUrl() {
+    if (location.protocol === "file:") {
+      return "http://localhost:3000/verify-certificate.html?c=ONIZLEME";
+    }
+    try {
+      const u = new URL("../verify-certificate.html", location.href);
+      u.searchParams.set("c", "ONIZLEME");
+      return u.href;
+    } catch {
+      return `${location.origin}/verify-certificate.html?c=ONIZLEME`;
+    }
+  }
+
+  async function renderPreviewQr() {
+    const canvas = document.getElementById("pvQrCanvas");
+    if (!canvas) return;
+    const url = getPreviewVerifyUrl();
+    const size = 120;
+    const opts = { width: size, margin: 2, color: { dark: "#1a0b0e", light: "#ffffff" } };
+    const QR = typeof QRCode !== "undefined" ? QRCode : window.QRCode;
+    try {
+      if (QR && typeof QR.toDataURL === "function") {
+        const dataUrl = await QR.toDataURL(url, opts);
+        const img = new Image();
+        await new Promise((resolve, reject) => {
+          img.onload = resolve;
+          img.onerror = reject;
+          img.src = dataUrl;
+        });
+        canvas.width = size;
+        canvas.height = size;
+        const ctx = canvas.getContext("2d");
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0, 0, size, size);
+        ctx.drawImage(img, 0, 0);
+        return;
+      }
+    } catch (e) {
+      console.warn(e);
+    }
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    if (ctx) {
+      ctx.fillStyle = "#f5f5f5";
+      ctx.fillRect(0, 0, size, size);
+      ctx.fillStyle = "#999";
+      ctx.font = "10px monospace";
+      ctx.fillText("QR", size / 2 - 10, size / 2);
+    }
+  }
+
+  function openPreviewIssue() {
+    hideError("issueErr");
+    const selectedSorted = getSelectedStudentsSorted();
+    const checkedIds = selectedSorted.map((s) => Number(s.id));
+    const title = document.getElementById("issueTitle").value.trim();
+    const subtitle = document.getElementById("issueSubtitle").value.trim();
+    const description = document.getElementById("issueDesc").value.trim();
+
+    if (!checkedIds.length) {
+      showError("issueErr", typeof t === "function" ? t("admin.cert.errPickOne") : "En az bir öğrenci seçin.");
+      return;
+    }
+    if (!title) {
+      showError("issueErr", typeof t === "function" ? t("admin.cert.errTitleRequired") : "Başlık zorunludur.");
+      return;
+    }
+
+    const firstStudent = selectedSorted[0];
+    document.getElementById("pvName").textContent = firstStudent ? firstStudent.name : "—";
+    document.getElementById("pvCourse").textContent = title;
+    const subEl = document.getElementById("pvSub");
+    if (subtitle) {
+      subEl.textContent = subtitle;
+      subEl.style.display = "block";
+    } else {
+      subEl.style.display = "none";
+    }
+    const descEl = document.getElementById("pvDesc");
+    if (description) {
+      descEl.textContent = description;
+      descEl.style.display = "block";
+    } else {
+      descEl.style.display = "none";
+    }
+    const loc = typeof getLang === "function" && getLang() === "en" ? "en-US" : "tr-TR";
+    document.getElementById("pvDate").textContent =
+      (typeof t === "function" ? t("admin.cert.datePrefix") : "Tarih: ") +
+      new Date().toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" });
+    document.getElementById("pvIssuer").textContent = issueSignaturePreviewText();
+
+    const note = document.getElementById("previewBatchNote");
+    if (checkedIds.length > 1) {
+      note.textContent = typeof t === "function"
+        ? t("admin.cert.previewBatchMany", { name: firstStudent ? firstStudent.name : "—", n: checkedIds.length })
+        : `Önizleme, seçilen öğrencilerden başarı sırasına göre ilki (${firstStudent ? firstStudent.name : "—"}) için gösterilir. Aynı başlık ve metin ${checkedIds.length} öğrenciye ayrı sertifika olarak oluşturulur.`;
+    } else {
+      note.textContent = typeof t === "function" ? t("admin.cert.previewBatchOne") : "Görünümü kontrol edin. Onayladığınızda sertifika oluşturulur.";
+    }
+
+    openModal("previewCertModal");
+    renderPreviewQr();
+  }
+
+  async function confirmCreateFromPreview() {
+    const checked = getSelectedStudentsSorted().map((s) => Number(s.id));
+    const title = document.getElementById("issueTitle").value.trim();
+    const subtitle = document.getElementById("issueSubtitle").value.trim() || null;
+    const description = document.getElementById("issueDesc").value.trim() || null;
+    const issuerSigRaw = document.getElementById("issueIssuerSig").value.trim();
+    const issuer_signature = issuerSigRaw ? issuerSigRaw.slice(0, 200) : null;
+    const btn = document.getElementById("previewConfirmCreateBtn");
+
+    if (!checked.length || !title) {
+      toast(typeof t === "function" ? t("admin.cert.formIncomplete") : "Form eksik. Formu doldurup tekrar önizleyin.", "error");
+      return;
+    }
+
+    btn.textContent = typeof t === "function" ? t("admin.cert.creating") : "Oluşturuluyor…";
+    btn.disabled = true;
+    const res = await fetch(`${API}/certificates`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ user_ids: checked, title, subtitle, description, issuer_signature }),
+    });
+    const data = await res.json();
+    btn.textContent = typeof t === "function" ? t("admin.cert.btnCreate") : "Sertifika oluştur";
+    btn.disabled = false;
+
+    if (!res.ok) {
+      toast(data.error || (typeof t === "function" ? t("admin.cert.saveFail") : "Kayıt başarısız."), "error");
+      return;
+    }
+    const n = data.count != null ? data.count : 1;
+    closeModal("previewCertModal");
+    toast(n > 1 ? (typeof t === "function" ? t("admin.cert.toastMany", { n }) : `${n} sertifika oluşturuldu.`) : (typeof t === "function" ? t("admin.cert.toastOne") : "Sertifika oluşturuldu."));
+    document.getElementById("issueTitle").value = "";
+    document.getElementById("issueSubtitle").value = "";
+    document.getElementById("issueDesc").value = "";
+    document.getElementById("issueIssuerSig").value = "";
+    document.getElementById("issueStudentFilter").value = "";
+    pickStudentsClear();
+    reloadPage();
+  }
+
+  function askDeleteCert(id) {
+    const c = certCache.find((x) => Number(x.id) === Number(id));
+    deleteCertId = id;
+    const title = (c && c.title) || "—";
+    const msg = document.getElementById("delCertMsg");
+    if (msg) msg.textContent = typeof t === "function" ? t("admin.cert.delConfirmFull", { title }) : `${title} kaydını kalıcı olarak silmek istiyor musunuz?`;
+    document.getElementById("delCertCode").textContent = (c && c.verification_code) || "";
+    openModal("deleteCertModal");
+  }
+
+  async function confirmDeleteCert() {
+    const btn = document.getElementById("confirmDelCertBtn");
+    btn.textContent = typeof t === "function" ? t("admin.students.deleting") : "Siliniyor…"; btn.disabled = true;
+    const res = await fetch(`${API}/certificates/${deleteCertId}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${_token}` },
+    });
+    btn.textContent = typeof t === "function" ? t("common.delete") : "Sil"; btn.disabled = false;
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      toast(d.error || (typeof t === "function" ? t("admin.cert.deleteFail") : "Silinemedi."), "error");
+      return;
+    }
+    closeModal("deleteCertModal");
+    toast(typeof t === "function" ? t("admin.cert.toastDeleted") : "Sertifika silindi.", "error");
+    reloadPage();
+  }
+
+  const certListSearchEl = document.getElementById("certListSearch");
+  const certListSortEl = document.getElementById("certListSort");
+  if (certListSearchEl) certListSearchEl.addEventListener("input", () => renderCertTable());
+  if (certListSortEl) certListSortEl.addEventListener("change", () => renderCertTable());
+
+  document.querySelector(".issue-card .card-body")?.addEventListener("change", (e) => {
+    const t = e.target;
+    if (t.name !== "issueStudent") return;
+    const id = parseInt(t.value, 10);
+    if (!Number.isFinite(id)) return;
+    if (t.checked) issueSelectedIds.add(id);
+    else issueSelectedIds.delete(id);
+    updateIssueStudentPickSummary();
+  });
+
+  reloadPage();
+</script>
+</body>
+</html>

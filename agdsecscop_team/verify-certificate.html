@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — Sertifika Doğrulama</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0f0c14;
+      --card: #1a1624;
+      --border: rgba(255,255,255,0.1);
+      --text: #f0edf2;
+      --muted: rgba(240,237,242,0.55);
+      --red: #c73050;
+      --green: #1a9e6e;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "DM Sans", system-ui, sans-serif;
+      background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(199,48,80,0.15), transparent),
+        var(--bg);
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .box {
+      width: 100%;
+      max-width: 480px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px 26px;
+      text-align: center;
+    }
+    .logo { font-size: 1.1rem; font-weight: 800; letter-spacing: -0.02em; margin-bottom: 8px; }
+    .logo span { color: var(--red); }
+    h1 { font-size: 1.15rem; font-weight: 700; margin: 0 0 16px; }
+    .ok { color: var(--green); font-size: 2.5rem; margin-bottom: 8px; }
+    .err { color: #e85a7a; font-size: 2.5rem; margin-bottom: 8px; }
+    .meta { font-size: 0.88rem; color: var(--muted); line-height: 1.6; text-align: left; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); }
+    .meta div { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 8px; flex-wrap: wrap; }
+    .meta strong { color: var(--text); font-weight: 600; }
+    .code { font-family: ui-monospace, monospace; font-size: 0.82rem; color: var(--muted); word-break: break-all; }
+    .spinner {
+      width: 36px; height: 36px;
+      border: 3px solid var(--border);
+      border-top-color: var(--red);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin: 0 auto 16px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    a.home { display: inline-block; margin-top: 20px; color: var(--red); text-decoration: none; font-weight: 600; font-size: 0.9rem; }
+    a.home:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="box" id="root">
+    <div class="logo">SeC<span>Scop</span> Akademi</div>
+    <div class="spinner"></div>
+    <p style="color:var(--muted);font-size:.9rem;">Doğrulanıyor…</p>
+  </div>
+  <script>
+    const API = (location.protocol === "file:") ? "http://localhost:3001/api" : `${location.origin}/api`;
+    const params = new URLSearchParams(location.search);
+    const raw = params.get("c") || params.get("code") || "";
+    const code = (raw || "").trim();
+
+    function esc(s) {
+      const d = document.createElement("div");
+      d.textContent = s == null ? "" : String(s);
+      return d.innerHTML;
+    }
+
+    function fmt(iso) {
+      if (!iso) return "—";
+      try {
+        return new Date(iso).toLocaleString("tr-TR", { dateStyle: "long", timeStyle: "short" });
+      } catch { return "—"; }
+    }
+
+    async function run() {
+      const root = document.getElementById("root");
+      if (!code) {
+        root.innerHTML = `
+          <div class="logo">SeC<span>Scop</span> Akademi</div>
+          <div class="err">✕</div>
+          <h1>Doğrulama kodu yok</h1>
+          <p style="color:var(--muted);font-size:.9rem;">Geçerli bir sertifika bağlantısı kullanın.</p>
+          <a class="home" href="index.html">Ana sayfa</a>`;
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/certificates/verify/${encodeURIComponent(code)}`);
+        const data = await res.json();
+
+        if (!res.ok || !data.ok) {
+          root.innerHTML = `
+            <div class="logo">SeC<span>Scop</span> Akademi</div>
+            <div class="err">✕</div>
+            <h1>Sertifika doğrulanamadı</h1>
+            <p style="color:var(--muted);font-size:.9rem;">${esc(data.error || "Bu kod sistemde kayıtlı değil.")}</p>
+            <a class="home" href="index.html">Ana sayfa</a>`;
+          return;
+        }
+
+        const sigLine = data.issuer_signature || data.issuer_name || "SeCScop Akademi";
+        root.innerHTML = `
+          <div class="logo">SeC<span>Scop</span> Akademi</div>
+          <div class="ok">✓</div>
+          <h1>Sertifika geçerli</h1>
+          <p style="color:var(--muted);font-size:.9rem;">Bu kayıt SeCScop veritabanında doğrulanmıştır.</p>
+          <div class="meta">
+            <div><span>Alıcı</span><strong>${esc(data.recipient_name)}</strong></div>
+            <div><span>Başlık</span><strong>${esc(data.title)}</strong></div>
+            ${data.subtitle ? `<div><span>Alt başlık</span><strong>${esc(data.subtitle)}</strong></div>` : ""}
+            <div><span>İmza</span><strong>${esc(sigLine)}</strong></div>
+            <div><span>Tarih</span><strong>${fmt(data.issued_at)}</strong></div>
+            <div style="display:block;margin-top:12px;"><span>Kod</span><div class="code">${esc(data.verification_code)}</div></div>
+          </div>
+          <a class="home" href="index.html">Ana sayfa</a>`;
+      } catch (e) {
+        document.getElementById("root").innerHTML = `
+          <div class="logo">SeC<span>Scop</span> Akademi</div>
+          <div class="err">✕</div>
+          <h1>Bağlantı hatası</h1>
+          <p style="color:var(--muted);font-size:.9rem;">Lütfen daha sonra tekrar deneyin.</p>
+          <a class="home" href="index.html">Ana sayfa</a>`;
+      }
+    }
+    run();
+  </script>
+</body>
+</html>

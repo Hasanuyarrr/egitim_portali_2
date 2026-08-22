@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — Duyurular</title>
+  <link rel="stylesheet" href="admin.css">
+  <link rel="stylesheet" href="student-shell.css">
+  <style>
+    .sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:45; }
+    .ann-item { padding:12px 0; border-bottom:1px solid var(--border); }
+    .ann-item:last-child { border-bottom:none; }
+    @media (max-width:900px){ .sidebar-overlay.visible{display:block;} }
+  </style>
+</head>
+<body>
+<div class="admin-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+  <main class="admin-main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button type="button" class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+        <div>
+          <div class="topbar-title" data-i18n="student.topbar.brand">Öğrenci Paneli</div>
+          <div class="topbar-page-hint" id="studentPageHint"></div>
+          <div class="topbar-sub" id="topbarSub"></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="notif-wrap" id="notifWrap">
+          <button type="button" class="btn btn-ghost btn-sm notif-btn" id="notifBtn" onclick="toggleNotifPanel()" data-i18n-title="student.page.announcements" title="Duyurular">🔔
+            <span class="notif-badge" id="notifBadge" aria-hidden="true"></span>
+          </button>
+          <div class="notif-panel" id="notifPanel">
+            <div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:.76rem;font-weight:700;color:var(--text-2);display:flex;justify-content:space-between;align-items:center;">
+              <span id="notifPanelTitle">Yeni Duyurular</span>
+              <a id="notifSeeAll" href="student-announcements.html" style="font-size:.72rem;color:var(--blue);text-decoration:none;">Tümünü gör</a>
+            </div>
+            <div id="notifList" style="padding:0;"></div>
+          </div>
+        </div>
+        <div class="topbar-avatar">
+          <div class="avatar avatar-blue" style="width:28px;height:28px;font-size:0.7rem;" id="avatarInitials">—</div>
+          <span class="topbar-avatar-name" id="avatarName">Öğrenci</span>
+        </div>
+      </div>
+    </header>
+    <div class="page">
+      <div class="card"><div class="card-header"><h3 data-i18n="student.ann.allTitle">Tüm Duyurular</h3><span class="badge badge-red" id="count">—</span></div><div class="card-body" id="list"><div class="spinner"></div></div></div>
+    </div>
+  </main>
+</div>
+<script src="theme-i18n.js"></script>
+<script src="student-shared.js"></script>
+<script>
+initStudentShell({ activePage: "announcements", pageLabelKey: "student.page.announcements" });
+if (typeof t === "function") document.title = "SeCScop — " + t("student.meta.titleAnnouncements");
+function sT(key, vars) { return typeof t === "function" ? t(key, vars) : key; }
+const API = window.API;
+const token = window.token;
+const user = window.user;
+function rel(iso){return window.relativeTime(iso);}
+const annLastSeenIdKey=`ann_last_seen_id_${user?.id||"student"}`;
+fetch(`${API}/announcements`,{headers:{Authorization:`Bearer ${token}`}}).then(r=>r.json()).then(rows=>{
+ if(!Array.isArray(rows)) return;
+ if(rows.length){ const maxId=Math.max(...rows.map(a=>Number(a.id)||0)); if(maxId>0) localStorage.setItem(annLastSeenIdKey,String(maxId)); }
+ document.getElementById("count").textContent = sT("student.ann.count", { n: rows.length });
+ const esc = typeof window.escapeHtmlStr === "function" ? window.escapeHtmlStr : (s) => String(s ?? "").replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+ document.getElementById("list").innerHTML=rows.map(a=>`<div class="ann-item"><div style="font-weight:700;color:var(--text);">${esc(a.title)}</div><div style="font-size:.86rem;color:var(--text-2);margin-top:4px;line-height:1.55;">${esc(a.body)}</div><div style="font-size:.74rem;color:var(--text-3);margin-top:6px;">${esc(rel(a.created_at))}</div></div>`).join("");
+});
+</script>
+</body>
+</html>

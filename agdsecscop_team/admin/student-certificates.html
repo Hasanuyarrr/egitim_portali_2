@@ -1,0 +1,832 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — Sertifikalarım</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="admin.css">
+  <link rel="stylesheet" href="student-shell.css">
+  <style>
+    .sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:45;}@media(max-width:900px){.sidebar-overlay.visible{display:block;}}
+    .cert-grid { display:grid; gap:16px; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); }
+    .cert-card {
+      background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius);
+      padding:18px 20px; display:flex; flex-direction:column; gap:12px;
+      transition:border-color .2s, box-shadow .2s;
+    }
+    .cert-card:hover { border-color:var(--border-2); box-shadow:0 6px 20px rgba(0,0,0,.06); }
+    .cert-card h4 { margin:0; font-size:1rem; font-weight:700; color:var(--text); line-height:1.35; }
+    .cert-card-meta { font-size:.8rem; color:var(--text-2); }
+    .cert-card-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:auto; padding-top:8px; border-top:1px solid var(--border); }
+    .btn-share { font-size:.78rem; padding:6px 10px; }
+
+    /* Modal + printable certificate */
+    /* Üst katmanlar (bildirim vb.) altında kalmaması için yüksek z-index */
+    .cert-modal-overlay { display:none; position:fixed; inset:0; z-index:10050; background:rgba(15,12,20,.85); align-items:center; justify-content:center; padding:20px; overflow:auto; }
+    .cert-modal-overlay.open { display:flex; }
+    .cert-modal-inner { max-width:960px; width:100%; }
+    .cert-toolbar {
+      display:flex; flex-wrap:wrap; gap:8px; margin-bottom:14px; align-items:center; justify-content:space-between;
+    }
+    .cert-toolbar .group { display:flex; flex-wrap:wrap; gap:8px; }
+
+    /* ── SeCScop: kırmızı / siyah sertifika (admin.css --red ile uyumlu) ── */
+    .cert-surface {
+      --cert-red: #c73050;
+      --cert-red-glow: rgba(199, 48, 80, 0.45);
+      --cert-red-soft: rgba(199, 48, 80, 0.22);
+      --cert-ink: #f0edf2;
+      --cert-muted: rgba(240, 237, 242, 0.5);
+      --cert-bg: #0c090c;
+      --cert-bg2: #151018;
+      font-family: "Plus Jakarta Sans", system-ui, sans-serif;
+      background:
+        radial-gradient(ellipse 90% 60% at 80% -10%, var(--cert-red-soft), transparent 50%),
+        radial-gradient(ellipse 70% 50% at 10% 100%, rgba(199, 48, 80, 0.08), transparent 45%),
+        linear-gradient(165deg, var(--cert-bg2) 0%, var(--cert-bg) 100%);
+      color: var(--cert-ink);
+      border: 1px solid rgba(199, 48, 80, 0.35);
+      border-radius: 12px;
+      padding: 0;
+      position: relative;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 1px rgba(255, 255, 255, 0.04),
+        0 24px 64px rgba(0, 0, 0, 0.55),
+        0 0 80px rgba(199, 48, 80, 0.08);
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+    .cert-surface::after {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: repeating-linear-gradient(
+        -12deg,
+        transparent,
+        transparent 28px,
+        rgba(199, 48, 80, 0.025) 28px,
+        rgba(199, 48, 80, 0.025) 29px
+      );
+      pointer-events: none;
+      opacity: 0.85;
+    }
+    .cert-surface__bar {
+      height: 4px;
+      background: linear-gradient(90deg, transparent, var(--cert-red), var(--cert-red), transparent);
+      opacity: 0.95;
+    }
+    .cert-hacker-inner {
+      position: relative;
+      padding: 36px 42px 32px;
+      z-index: 1;
+    }
+
+    /* Tek satır root shell */
+    .cert-shell {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 0.62rem;
+      line-height: 1.5;
+      color: rgba(240, 237, 242, 0.55);
+      background: linear-gradient(145deg, rgba(0, 0, 0, 0.5) 0%, rgba(20, 10, 14, 0.4) 100%);
+      border-radius: 8px;
+      border: 1px solid rgba(199, 48, 80, 0.22);
+      border-left: 3px solid var(--cert-red);
+      padding: 12px 14px;
+      margin: 0 0 18px;
+      overflow-x: auto;
+      white-space: nowrap;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+    @media screen and (max-width: 700px) {
+      .cert-shell { white-space: normal; }
+    }
+    .cert-prompt { color: var(--cert-red); font-weight: 600; }
+    .cert-cmd { color: rgba(255, 255, 255, 0.88); }
+
+    .cert-badge-row { text-align: center; margin: 0 0 16px; }
+    .cert-badge {
+      display: inline-block;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 0.62rem;
+      font-weight: 600;
+      letter-spacing: 0.2em;
+      color: #0c090c;
+      background: linear-gradient(135deg, #e85a7a 0%, var(--cert-red) 100%);
+      padding: 8px 18px;
+      border-radius: 999px;
+      text-transform: uppercase;
+    }
+
+    /* Orta blok: sol metin (sola hizalı) + sağ QR */
+    .cert-main-center {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 28px 40px;
+      align-items: center;
+      max-width: 780px;
+      margin: 0 auto;
+    }
+    /* Yalnızca ekranda daralt; yazdırmada asla tek sütun yapma (QR yanda kalsın) */
+    @media screen and (max-width: 720px) {
+      .cert-main-center {
+        grid-template-columns: 1fr;
+        justify-items: stretch;
+        gap: 24px;
+      }
+      .cert-qr-col { justify-self: center; }
+    }
+    .cert-main-col {
+      text-align: left;
+      min-width: 0;
+    }
+    .cert-brand {
+      text-align: left;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+      color: var(--cert-muted);
+      margin-bottom: 8px;
+    }
+    .cert-brand span { color: var(--cert-red); }
+
+    .cert-headline {
+      text-align: left;
+      font-size: clamp(1.2rem, 3vw, 1.65rem);
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      color: #fff;
+      margin: 0 0 8px;
+      line-height: 1.2;
+      text-shadow: 0 0 40px var(--cert-red-glow);
+    }
+
+    .cert-presented {
+      text-align: left;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 0.65rem;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--cert-muted);
+      margin-bottom: 14px;
+      line-height: 1.45;
+    }
+
+    .cert-name {
+      text-align: left;
+      font-size: clamp(1.35rem, 3.5vw, 1.75rem);
+      font-weight: 700;
+      margin: 0 0 14px;
+      color: #fff;
+      letter-spacing: -0.02em;
+      border-bottom: 1px solid rgba(199, 48, 80, 0.35);
+      padding-bottom: 14px;
+    }
+
+    .cert-title-block { text-align: left; margin: 0; }
+    .cert-course {
+      font-size: 1rem;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.92);
+      line-height: 1.55;
+    }
+    .cert-sub { font-size: 0.88rem; color: var(--cert-muted); margin-top: 8px; line-height: 1.5; }
+    .cert-desc {
+      font-size: 0.78rem;
+      color: var(--cert-muted);
+      line-height: 1.65;
+      max-width: 100%;
+      margin: 12px 0 0;
+      text-align: left;
+    }
+
+    .cert-qr-col {
+      flex-shrink: 0;
+    }
+    .cert-footer {
+      display: block;
+      margin: 28px auto 0;
+      border-top: 1px solid rgba(199, 48, 80, 0.2);
+      padding-top: 20px;
+      max-width: 780px;
+    }
+    .cert-date {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 0.7rem;
+      color: var(--cert-muted);
+    }
+    .cert-date::before { content: "// "; color: var(--cert-red); }
+    .cert-issuer {
+      font-size: 0.72rem;
+      color: var(--cert-muted);
+      margin-top: 12px;
+      letter-spacing: 0.04em;
+    }
+    .cert-issuer strong {
+      display: block;
+      color: var(--cert-ink);
+      font-size: 0.88rem;
+      margin-top: 6px;
+      font-family: "Plus Jakarta Sans", sans-serif;
+      font-weight: 700;
+      letter-spacing: 0;
+    }
+
+    .cert-qr-wrap { text-align: center; min-width: 132px; }
+    .cert-qr-frame {
+      display: inline-block;
+      padding: 10px;
+      border-radius: 10px;
+      background: #fff;
+      box-shadow: 0 0 0 1px rgba(199, 48, 80, 0.35), 0 8px 28px rgba(0, 0, 0, 0.35);
+    }
+    .cert-qr-wrap canvas {
+      display: block;
+      margin: 0 auto;
+      border-radius: 4px;
+      vertical-align: middle;
+    }
+    .cert-verify-code {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 0.58rem;
+      color: var(--cert-muted);
+      word-break: break-all;
+      max-width: 160px;
+      margin: 8px auto 0;
+      line-height: 1.4;
+    }
+    .cert-verify-label {
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 0.55rem;
+      color: var(--cert-muted);
+      letter-spacing: 0.12em;
+      margin-bottom: 8px;
+    }
+
+    .cert-status-strip {
+      margin-top: 18px;
+      padding: 12px 14px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(199, 48, 80, 0.28);
+      border-radius: 8px;
+      font-family: "JetBrains Mono", ui-monospace, monospace;
+      font-size: 0.6rem;
+      color: var(--cert-muted);
+      letter-spacing: 0.04em;
+      word-break: break-all;
+      line-height: 1.55;
+    }
+    .cert-status-strip strong { color: var(--cert-red); font-weight: 600; }
+
+    /*
+      A4 yatay = 297×210 mm. Yazdır/PDF tam sayfa dolsun diye içerik kutusu:
+      kenar boşluğu 6 mm → 285×198 mm (tarayıcı “Dikey” seçerse küçük görünür; Yatay + A4 kullanın).
+    */
+    @page {
+      size: A4 landscape;
+      margin: 6mm;
+    }
+
+    @media print {
+      html,
+      body {
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 285mm;
+        height: 198mm;
+        max-width: 285mm;
+        max-height: 198mm;
+        overflow: hidden;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      body * {
+        visibility: hidden;
+      }
+      #certPrintRoot,
+      #certPrintRoot * {
+        visibility: visible;
+      }
+      #certPrintRoot {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 285mm;
+        height: 198mm;
+        max-width: 285mm;
+        max-height: 198mm;
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      .cert-modal-overlay {
+        position: static !important;
+        display: block !important;
+        background: transparent;
+        padding: 0;
+        margin: 0;
+        width: 285mm !important;
+        height: 198mm !important;
+        max-width: 285mm !important;
+        max-height: 198mm !important;
+        min-height: 198mm !important;
+      }
+      .cert-modal-inner {
+        max-width: none !important;
+        width: 285mm !important;
+        height: 198mm !important;
+        min-height: 198mm !important;
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+      .cert-toolbar {
+        display: none !important;
+      }
+      /* Tam sayfa kart — üst çubuk + içerik dikey doldurma */
+      .cert-surface__bar {
+        flex-shrink: 0;
+      }
+      .cert-surface {
+        box-shadow: none;
+        page-break-inside: avoid;
+        break-inside: avoid;
+        border: 1px solid rgba(199, 48, 80, 0.45);
+        width: 285mm !important;
+        height: 198mm !important;
+        min-height: 198mm !important;
+        max-height: 198mm !important;
+        max-width: 285mm !important;
+        box-sizing: border-box;
+        border-radius: 4px;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+      }
+      .cert-hacker-inner {
+        flex: 1 1 auto;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 0;
+        padding: 8mm 10mm !important;
+        box-sizing: border-box;
+      }
+      .cert-main-center {
+        display: grid !important;
+        grid-template-columns: minmax(0, 1fr) auto !important;
+        gap: 8px 16px !important;
+        align-items: center !important;
+        justify-items: stretch !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        flex: 1 1 auto;
+        min-height: 0;
+      }
+      .cert-qr-col {
+        justify-self: end !important;
+        align-self: center !important;
+      }
+      .cert-shell {
+        margin-bottom: 6px !important;
+        padding: 5px 8px !important;
+        font-size: 0.5rem !important;
+        flex-shrink: 0;
+      }
+      .cert-badge-row {
+        margin-bottom: 6px !important;
+        flex-shrink: 0;
+      }
+      .cert-brand {
+        font-size: 0.58rem !important;
+        margin-bottom: 2px !important;
+      }
+      .cert-headline {
+        font-size: 1.05rem !important;
+        margin-bottom: 2px !important;
+      }
+      .cert-presented {
+        margin-bottom: 6px !important;
+        font-size: 0.55rem !important;
+      }
+      .cert-name {
+        font-size: 1.15rem !important;
+        padding-bottom: 6px !important;
+        margin-bottom: 6px !important;
+      }
+      .cert-course {
+        font-size: 0.82rem !important;
+        line-height: 1.3 !important;
+      }
+      .cert-sub {
+        font-size: 0.7rem !important;
+        margin-top: 3px !important;
+      }
+      .cert-desc {
+        font-size: 0.62rem !important;
+        line-height: 1.3 !important;
+        margin-top: 4px !important;
+        max-height: 42mm;
+        overflow: hidden;
+      }
+      .cert-footer {
+        margin-top: 4px !important;
+        padding-top: 6px !important;
+        max-width: 100% !important;
+        flex-shrink: 0;
+      }
+      .cert-qr-frame {
+        padding: 3px !important;
+      }
+      #certPrintRoot .cert-qr-wrap canvas {
+        width: 100px !important;
+        height: 100px !important;
+        max-width: 100px !important;
+        max-height: 100px !important;
+      }
+      .cert-verify-label {
+        font-size: 0.45rem !important;
+        margin-bottom: 2px !important;
+      }
+      .cert-verify-code {
+        font-size: 0.45rem !important;
+        max-width: 110px !important;
+        margin-top: 2px !important;
+      }
+      .cert-status-strip {
+        margin-top: 4px !important;
+        padding: 5px 8px !important;
+        font-size: 0.48rem !important;
+        line-height: 1.3 !important;
+        flex-shrink: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="admin-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+  <main class="admin-main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button type="button" class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+        <div>
+          <div class="topbar-title" data-i18n="student.topbar.brand">Öğrenci Paneli</div>
+          <div class="topbar-page-hint" id="studentPageHint"></div>
+          <div class="topbar-sub" id="topbarSub"></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="notif-wrap" id="notifWrap">
+          <button type="button" class="btn btn-ghost btn-sm notif-btn" id="notifBtn" onclick="toggleNotifPanel()" data-i18n-title="student.page.announcements" title="Duyurular">🔔
+            <span class="notif-badge" id="notifBadge" aria-hidden="true"></span>
+          </button>
+          <div class="notif-panel" id="notifPanel">
+            <div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:.76rem;font-weight:700;color:var(--text-2);display:flex;justify-content:space-between;align-items:center;">
+              <span id="notifPanelTitle">Yeni Duyurular</span>
+              <a id="notifSeeAll" href="student-announcements.html" style="font-size:.72rem;color:var(--blue);text-decoration:none;">Tümünü gör</a>
+            </div>
+            <div id="notifList" style="padding:0;"></div>
+          </div>
+        </div>
+        <div class="topbar-avatar">
+          <div class="avatar avatar-blue" style="width:28px;height:28px;font-size:0.7rem;" id="avatarInitials">—</div>
+          <span class="topbar-avatar-name" id="avatarName">Öğrenci</span>
+        </div>
+      </div>
+    </header>
+    <div class="page">
+      <div class="card">
+        <div class="card-header"><h3 data-i18n="student.cert.pageHeading">Kazanılan sertifikalar</h3></div>
+        <div class="card-body" id="certListRoot">
+          <div style="text-align:center;padding:32px;"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="cert-modal-overlay" id="certModal" aria-hidden="true">
+  <div class="cert-modal-inner">
+    <div class="cert-toolbar">
+      <div class="group">
+        <button type="button" class="btn btn-primary btn-sm" onclick="printCertificate()" data-i18n="student.cert.btnPrint">Yazdır / PDF</button>
+        <button type="button" class="btn btn-ghost btn-sm btn-share" onclick="shareLinkedIn()" data-i18n="student.cert.shareLinkedIn">LinkedIn’de paylaş</button>
+        <button type="button" class="btn btn-ghost btn-sm btn-share" onclick="shareX()" data-i18n="student.cert.shareX">X (Twitter)</button>
+        <button type="button" class="btn btn-ghost btn-sm btn-share" onclick="shareWhatsApp()" data-i18n="student.cert.shareWhatsApp">WhatsApp</button>
+        <button type="button" class="btn btn-ghost btn-sm btn-share" onclick="copyVerifyLink()" data-i18n="student.cert.copyLinkBtn">Bağlantıyı kopyala</button>
+      </div>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="closeCertModal()" data-i18n="common.close">Kapat</button>
+    </div>
+    <div id="certPrintRoot">
+      <div class="cert-surface" id="certSurface">
+        <div class="cert-surface__bar" aria-hidden="true"></div>
+        <div class="cert-hacker-inner">
+          <div class="cert-shell" aria-hidden="true">
+            <span class="cert-prompt">root@secscop-akademi:~#</span> <span class="cert-cmd">./opt/secscop/bin/certify --issuer=secscop --verify-chain --audit</span>
+          </div>
+          <div class="cert-badge-row"><span class="cert-badge">Doğrulanmış · Verified</span></div>
+          <div class="cert-main-center">
+            <div class="cert-main-col">
+              <div class="cert-brand">SeC<span>Scop</span> Akademi</div>
+              <p class="cert-headline">Öğrenim sertifikası</p>
+              <p class="cert-presented">Bu belge aşağıdaki kişiye verilmiştir</p>
+              <h2 class="cert-name" id="certNameEl">—</h2>
+              <div class="cert-title-block">
+                <div class="cert-course" id="certTitleEl">—</div>
+                <div class="cert-sub" id="certSubEl" style="display:none;"></div>
+                <div class="cert-desc" id="certDescEl" style="display:none;"></div>
+              </div>
+            </div>
+            <div class="cert-qr-col">
+              <div class="cert-qr-wrap">
+                <div class="cert-verify-label">Doğrulama QR</div>
+                <div class="cert-qr-frame">
+                  <canvas id="certQrCanvas" aria-label="Doğrulama QR kodu"></canvas>
+                </div>
+                <div class="cert-verify-code" id="certCodeEl"></div>
+              </div>
+            </div>
+          </div>
+          <div class="cert-footer">
+            <div class="cert-date" id="certDateEl">—</div>
+            <div class="cert-issuer">İmza<br><strong id="certIssuerEl">SeCScop Akademi</strong></div>
+          </div>
+          <div class="cert-status-strip" id="certStatusStrip">
+            <strong>DURUM:</strong> Geçerli · <strong>KOD:</strong> <span id="certSigEl">—</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- TODO: internet erişimi olan bir ortamda SRI hash'i sabitleyin:
+     curl -s https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js | openssl dgst -sha384 -binary | openssl base64 -A
+     ve integrity="sha384-..." olarak ekleyin. -->
+<script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.3/build/qrcode.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+<script src="theme-i18n.js"></script>
+<script src="student-shared.js"></script>
+<script>
+  initStudentShell({ activePage: "certificates", pageLabelKey: "student.page.certificates" });
+  if (typeof t === "function") document.title = "SeCScop — " + t("student.meta.titleCertificates");
+  function sT(key, vars) {
+    return typeof t === "function" ? t(key, vars) : key;
+  }
+
+  const API = location.protocol === "file:" ? "http://localhost:3001/api" : `${location.origin}/api`;
+  const token = localStorage.getItem("token");
+
+  function getVerifyUrl(code) {
+    const raw = String(code || "").trim();
+    if (!raw) return "";
+    if (location.protocol === "file:") {
+      return `http://localhost:3000/verify-certificate.html?c=${encodeURIComponent(raw)}`;
+    }
+    try {
+      const u = new URL("../verify-certificate.html", location.href);
+      u.searchParams.set("c", raw);
+      return u.href;
+    } catch {
+      return `${location.origin}/verify-certificate.html?c=${encodeURIComponent(raw)}`;
+    }
+  }
+
+  function formatCertDate(iso) {
+    if (!iso) return "—";
+    try {
+      const loc = typeof getLang === "function" && getLang() === "en" ? "en-US" : "tr-TR";
+      return new Date(iso).toLocaleDateString(loc, { day: "numeric", month: "long", year: "numeric" });
+    } catch { return "—"; }
+  }
+
+  let currentShare = { url: "", text: "", code: "" };
+
+  async function loadQrModule() {
+    const g = typeof globalThis !== "undefined" ? globalThis : window;
+    const candidates = [g.QRCode, g.qrcode].filter(Boolean);
+    for (const QR of candidates) {
+      if (typeof QR.toDataURL === "function") return QR;
+    }
+    try {
+      const mod = await import("https://esm.sh/qrcode@1.5.3");
+      const QR = mod.default || mod;
+      if (QR && typeof QR.toDataURL === "function") return QR;
+    } catch (e) {
+      console.warn("QR modülü yüklenemedi:", e);
+    }
+    return null;
+  }
+
+  /**
+   * toCanvas bazı ortamlarda hata veriyor; önce toDataURL + drawImage, sonra toCanvas, sonra esm.
+   */
+  async function renderCertificateQr(canvas, payload) {
+    const text = String(payload || "");
+    const size = 128;
+    const opts = {
+      width: size,
+      margin: 2,
+      errorCorrectionLevel: "M",
+      color: { dark: "#1a0b0e", light: "#ffffff" },
+    };
+
+    const drawPlaceholder = () => {
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, size, size);
+      ctx.fillStyle = "#c73050";
+      ctx.font = "600 11px JetBrains Mono, ui-monospace, monospace";
+      ctx.textAlign = "center";
+      ctx.fillText("QR", size / 2, size / 2 - 4);
+      ctx.font = "400 8px JetBrains Mono, ui-monospace, monospace";
+      ctx.fillStyle = "#666";
+      ctx.fillText(sT("student.cert.qrFail"), size / 2, size / 2 + 10);
+    };
+
+    const QR = await loadQrModule();
+    if (!QR) {
+      drawPlaceholder();
+      return;
+    }
+
+    try {
+      const dataUrl = await QR.toDataURL(text, opts);
+      const img = new Image();
+      await new Promise((resolve, reject) => {
+        img.onload = () => resolve();
+        img.onerror = reject;
+        img.src = dataUrl;
+      });
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.fillStyle = "#ffffff";
+        ctx.fillRect(0, 0, size, size);
+        ctx.drawImage(img, 0, 0);
+      }
+      return;
+    } catch (e) {
+      console.warn("QR toDataURL:", e);
+    }
+
+    drawPlaceholder();
+  }
+
+  // Ortak, tırnak/backtick kaçışlı sürüm (student-shared.js).
+  const esc = window.escapeHtml;
+
+  async function loadCertificates() {
+    const root = document.getElementById("certListRoot");
+    let data;
+    try {
+      const res = await fetch(`${API}/certificates`, { headers: { Authorization: `Bearer ${token}` } });
+      if (res.status === 401) { window.location.href = "login.html"; return; }
+      data = await res.json();
+    } catch (e) {
+      console.error(e);
+      root.innerHTML = `<div class="empty-state"><span class="empty-icon">⚠️</span><p>${esc(sT("student.cert.loadFail"))}</p></div>`;
+      return;
+    }
+    const list = Array.isArray(data) ? data : [];
+    if (data && data.error && !list.length) {
+      root.innerHTML = `<div class="empty-state"><span class="empty-icon">⚠️</span><p>${esc(data.error)}</p></div>`;
+      return;
+    }
+
+    if (!list.length) {
+      root.innerHTML = `<div class="empty-state"><span class="empty-icon">📜</span><p>${esc(sT("student.cert.empty"))}</p></div>`;
+      return;
+    }
+
+    root.innerHTML = `<div class="cert-grid">${list.map((c) => `
+      <div class="cert-card">
+        <h4>${esc(c.title)}</h4>
+        <div class="cert-card-meta">${formatCertDate(c.issued_at)}${c.subtitle ? ` · ${esc(c.subtitle)}` : ""}</div>
+        <div class="cert-card-meta cert-code" style="font-family:ui-monospace,monospace;font-size:.75rem;">${esc(c.verification_code)}</div>
+        <div class="cert-card-actions">
+          <button type="button" class="btn btn-primary btn-sm" data-cert-id="${Number(c.id)}">${esc(sT("student.cert.viewShare"))}</button>
+        </div>
+      </div>
+    `).join("")}</div>`;
+
+    window.__certList = list;
+    root.querySelectorAll("[data-cert-id]").forEach((btn) => {
+      btn.addEventListener("click", () => openCertModal(Number(btn.getAttribute("data-cert-id"))));
+    });
+  }
+
+  async function openCertModal(id) {
+    const nid = Number(id);
+    const list = window.__certList || [];
+    let c = list.find((x) => Number(x.id) === nid);
+    if (!c) {
+      try {
+        const res = await fetch(`${API}/certificates/${nid}`, { headers: { Authorization: `Bearer ${token}` } });
+        if (!res.ok) return;
+        c = await res.json();
+      } catch (e) {
+        console.error(e);
+        return;
+      }
+    }
+    if (!c) return;
+
+    const verifyUrl = getVerifyUrl(c.verification_code);
+    const qrPayload =
+      verifyUrl ||
+      (location.protocol === "file:"
+        ? "http://localhost:3000/verify-certificate.html"
+        : `${location.origin}/verify-certificate.html`);
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const name = c.recipient_name || user.name || "—";
+
+    document.getElementById("certNameEl").textContent = name;
+    document.getElementById("certTitleEl").textContent = c.title || "—";
+    const sub = document.getElementById("certSubEl");
+    if (c.subtitle) {
+      sub.textContent = c.subtitle;
+      sub.style.display = "block";
+    } else {
+      sub.style.display = "none";
+    }
+    const desc = document.getElementById("certDescEl");
+    if (c.description) {
+      desc.textContent = c.description;
+      desc.style.display = "block";
+    } else {
+      desc.style.display = "none";
+    }
+    document.getElementById("certDateEl").textContent = sT("student.cert.dateLabel", { date: formatCertDate(c.issued_at) });
+    document.getElementById("certIssuerEl").textContent =
+      c.issuer_signature || c.issuer_name || sT("student.cert.defaultIssuer");
+    document.getElementById("certCodeEl").textContent = c.verification_code || "";
+    document.getElementById("certSigEl").textContent = c.verification_code || "—";
+
+    const canvas = document.getElementById("certQrCanvas");
+    const shareLink = verifyUrl || qrPayload;
+    const shareText = sT("student.cert.shareText", { title: c.title || "", url: shareLink });
+    currentShare = { url: shareLink, text: shareText, code: c.verification_code || "" };
+
+    document.getElementById("certModal").classList.add("open");
+    document.getElementById("certModal").setAttribute("aria-hidden", "false");
+
+    await renderCertificateQr(canvas, qrPayload);
+  }
+
+  function closeCertModal() {
+    document.getElementById("certModal").classList.remove("open");
+    document.getElementById("certModal").setAttribute("aria-hidden", "true");
+  }
+
+  function printCertificate() {
+    window.print();
+  }
+
+  function shareLinkedIn() {
+    const u = encodeURIComponent(currentShare.url);
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${u}`, "_blank", "noopener,noreferrer");
+  }
+
+  function shareX() {
+    const t = encodeURIComponent(currentShare.text);
+    window.open(`https://twitter.com/intent/tweet?text=${t}`, "_blank", "noopener,noreferrer");
+  }
+
+  function shareWhatsApp() {
+    const q = encodeURIComponent(`${currentShare.text}`);
+    window.open(`https://wa.me/?text=${q}`, "_blank", "noopener,noreferrer");
+  }
+
+  async function copyVerifyLink() {
+    try {
+      await navigator.clipboard.writeText(currentShare.url);
+      const n = document.createElement("div");
+      n.textContent = sT("student.cert.copyOk");
+      n.style.cssText = "position:fixed;bottom:24px;right:24px;z-index:999;background:var(--green,#1a9e6e);color:#fff;padding:10px 16px;border-radius:10px;font-size:.85rem;font-weight:600;box-shadow:0 8px 24px rgba(0,0,0,.18);";
+      document.body.appendChild(n);
+      setTimeout(() => n.remove(), 2200);
+    } catch {
+      prompt(sT("student.cert.copyPrompt"), currentShare.url);
+    }
+  }
+
+  document.getElementById("certModal").addEventListener("click", (e) => {
+    if (e.target.id === "certModal") closeCertModal();
+  });
+
+  loadCertificates();
+</script>
+</body>
+</html>

@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — İlerleme Raporu</title>
+  <link rel="stylesheet" href="admin.css">
+  <link rel="stylesheet" href="student-shell.css">
+  <style>
+    .sidebar-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 45; }
+    @media (max-width: 900px) { .sidebar-overlay.visible { display: block; } }
+
+    .report-hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(200px, 280px);
+      gap: 24px;
+      align-items: center;
+      padding: 22px 24px;
+      background: linear-gradient(135deg, var(--bg-side) 0%, rgba(26, 20, 48, 0.92) 100%);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      margin-bottom: 20px;
+      overflow: hidden;
+      position: relative;
+    }
+    .report-hero::after {
+      content: "";
+      position: absolute;
+      right: -40px;
+      top: -40px;
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(199,48,80,0.12), transparent 70%);
+      pointer-events: none;
+    }
+    .report-hero-text { position: relative; z-index: 1; min-width: 0; }
+    .report-hero-kicker {
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 8px;
+    }
+    .report-hero-title {
+      font-size: 1.35rem;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #f0edf2;
+      line-height: 1.25;
+      margin-bottom: 10px;
+    }
+    .report-hero-desc {
+      font-size: 0.88rem;
+      color: rgba(240,237,242,0.55);
+      line-height: 1.55;
+      max-width: 520px;
+    }
+    .report-ring-wrap {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .report-ring {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      background: conic-gradient(
+        var(--red) calc(var(--pct, 0) * 1%),
+        rgba(255,255,255,0.08) 0
+      );
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    .report-ring-inner {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background: var(--bg-card);
+      display: grid;
+      place-items: center;
+      border: 1px solid var(--border);
+    }
+    .report-ring-val {
+      font-size: 1.75rem;
+      font-weight: 800;
+      font-family: var(--mono);
+      color: var(--text);
+      line-height: 1;
+    }
+    .report-ring-label {
+      font-size: 0.68rem;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+    @media (max-width: 720px) {
+      .report-hero { grid-template-columns: 1fr; text-align: center; }
+      .report-hero-desc { margin: 0 auto; }
+      .report-ring-wrap { order: -1; }
+    }
+
+    .report-stat-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .report-stat {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .report-stat-val {
+      font-size: 1.35rem;
+      font-weight: 800;
+      font-family: var(--mono);
+      color: var(--text);
+      line-height: 1.15;
+    }
+    .report-stat-lbl {
+      font-size: 0.72rem;
+      font-weight: 600;
+      color: var(--text-3);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+    .report-stat-sub {
+      font-size: 0.78rem;
+      color: var(--text-2);
+    }
+
+    .report-table-wrap { overflow-x: auto; }
+    .report-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.86rem;
+    }
+    .report-table th {
+      text-align: left;
+      padding: 10px 12px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-3);
+      border-bottom: 1px solid var(--border);
+      background: var(--bg);
+    }
+    .report-table td {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    .report-table tr:hover td { background: rgba(199,48,80,0.04); }
+    .report-mod-title { font-weight: 600; color: var(--text); }
+    .report-mod-meta { font-size: 0.76rem; color: var(--text-3); margin-top: 2px; }
+    .report-mini-bar {
+      height: 8px;
+      border-radius: 99px;
+      background: var(--border);
+      overflow: hidden;
+      max-width: 160px;
+    }
+    .report-mini-bar > div {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, var(--red), #e85a7a);
+      transition: width 0.4s ease;
+    }
+    .report-badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 3px 10px;
+      border-radius: 99px;
+      font-size: 0.72rem;
+      font-weight: 700;
+    }
+    .report-badge.done { background: var(--green-light); color: var(--green); }
+    .report-badge.prog { background: var(--orange-light); color: var(--orange); }
+    .report-badge.new { background: var(--bg-2); color: var(--text-3); }
+
+    .report-ctf-box {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 16px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 4px 0 8px;
+    }
+    .report-ctf-stats { display: flex; gap: 20px; flex-wrap: wrap; }
+    .report-ctf-item { font-size: 0.88rem; color: var(--text-2); }
+    .report-ctf-item strong { color: var(--text); font-family: var(--mono); }
+    .report-empty {
+      text-align: center;
+      padding: 28px 16px;
+      color: var(--text-3);
+      font-size: 0.88rem;
+    }
+  </style>
+</head>
+<body>
+<div class="admin-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+  <main class="admin-main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button type="button" class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+        <div>
+          <div class="topbar-title" data-i18n="student.topbar.brand">Öğrenci Paneli</div>
+          <div class="topbar-page-hint" id="studentPageHint"></div>
+          <div class="topbar-sub" id="topbarSub"></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="notif-wrap" id="notifWrap">
+          <button type="button" class="btn btn-ghost btn-sm notif-btn" id="notifBtn" onclick="toggleNotifPanel()" data-i18n-title="student.page.announcements" title="Duyurular">🔔
+            <span class="notif-badge" id="notifBadge" aria-hidden="true"></span>
+          </button>
+          <div class="notif-panel" id="notifPanel">
+            <div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:.76rem;font-weight:700;color:var(--text-2);display:flex;justify-content:space-between;align-items:center;">
+              <span id="notifPanelTitle">Yeni Duyurular</span>
+              <a id="notifSeeAll" href="student-announcements.html" style="font-size:.72rem;color:var(--blue);text-decoration:none;">Tümünü gör</a>
+            </div>
+            <div id="notifList" style="padding:0;"></div>
+          </div>
+        </div>
+        <div class="topbar-avatar">
+          <div class="avatar avatar-blue" style="width:28px;height:28px;font-size:0.7rem;" id="avatarInitials">—</div>
+          <span class="topbar-avatar-name" id="avatarName">Öğrenci</span>
+        </div>
+      </div>
+    </header>
+    <div class="page" id="reportPage">
+      <div id="reportRoot">
+        <div class="card"><div class="card-body" style="text-align:center;padding:40px;"><div class="spinner"></div><p style="margin-top:12px;font-size:.86rem;color:var(--text-3);" data-i18n="student.report.loading">Rapor yükleniyor…</p></div></div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="theme-i18n.js"></script>
+<script src="student-shared.js"></script>
+<script>
+initStudentShell({ activePage: "report", pageLabelKey: "student.page.report" });
+if (typeof t === "function") document.title = "SeCScop — " + t("student.meta.titleReport");
+function sT(key, vars) {
+  return typeof t === "function" ? t(key, vars) : key;
+}
+const apiFetch = window.apiFetch;
+
+// Ortak, tırnak/backtick kaçışlı sürüm (student-shared.js).
+const esc = window.escapeHtml;
+
+function fmtDate(v) {
+  if (v == null) return "—";
+  try {
+    const d = v instanceof Date ? v : new Date(v);
+    if (Number.isNaN(d.getTime())) return "—";
+    const loc = typeof getLang === "function" && getLang() === "en" ? "en-US" : "tr-TR";
+    return d.toLocaleString(loc, { dateStyle: "medium", timeStyle: "short" });
+  } catch {
+    return "—";
+  }
+}
+
+function modStatus(m) {
+  const p = Number(m.pct || 0);
+  if (p >= 100) return { cls: "done", text: sT("student.report.statusDone") };
+  if (p > 0) return { cls: "prog", text: sT("student.report.statusProg") };
+  return { cls: "new", text: sT("student.report.statusNew") };
+}
+
+async function loadReport() {
+  const root = document.getElementById("reportRoot");
+  let prog, ctf, lb;
+  try {
+    [prog, ctf, lb] = await Promise.all([
+      apiFetch("/progress"),
+      apiFetch("/ctf"),
+      apiFetch("/leaderboard"),
+    ]);
+  } catch (e) {
+    root.innerHTML = `<div class="card"><div class="card-body report-empty">${esc(sT("student.report.fetchFail"))}</div></div>`;
+    return;
+  }
+
+  if (!prog || prog.error) {
+    root.innerHTML = `<div class="card"><div class="card-body report-empty">${esc(prog?.error || sT("student.report.progressFail"))}</div></div>`;
+    return;
+  }
+
+  const modules = Array.isArray(prog.modules) ? prog.modules : [];
+  const overall = Number(prog.overall_pct || 0);
+  const totalLessons = modules.reduce((s, m) => s + Number(m.total_lessons || 0), 0);
+  const completedLessons = modules.reduce((s, m) => s + Number(m.completed_lessons || 0), 0);
+  const doneMods = modules.filter((m) => Number(m.pct || 0) >= 100).length;
+  const progMods = modules.filter((m) => {
+    const p = Number(m.pct || 0);
+    return p > 0 && p < 100;
+  }).length;
+  const notStarted = modules.filter((m) => Number(m.pct || 0) === 0).length;
+
+  let lastAt = null;
+  modules.forEach((m) => {
+    if (m.updated_at) {
+      const ts = new Date(m.updated_at).getTime();
+      if (!lastAt || ts > lastAt) lastAt = ts;
+    }
+  });
+
+  const ctfList = Array.isArray(ctf) && !ctf.error ? ctf : [];
+  const solvedCtf = ctfList.filter((c) => c.solved);
+  const ctfPoints = solvedCtf.reduce((s, c) => s + Number(c.points || 0), 0);
+  const ctfTotal = ctfList.length;
+
+  const lbList = Array.isArray(lb) && !lb.error ? lb : [];
+  const me = lbList.find((r) => r.is_me);
+  const rank = me ? me.rank : null;
+
+  const name = window.user?.name ? window.user.name.split(" ")[0] : "Öğrenci";
+
+  const heroHtml = `
+    <div class="report-hero">
+      <div class="report-hero-text">
+        <div class="report-hero-kicker">${esc(sT("student.report.kicker"))}</div>
+        <div class="report-hero-title">${esc(sT("student.report.heroTitle", { name }))}</div>
+        <p class="report-hero-desc">
+          ${esc(sT("student.report.heroDesc"))}
+          ${totalLessons ? sT("student.report.lessonsDone", { done: completedLessons, total: totalLessons }) : esc(sT("student.report.noLessons"))}
+          ${lastAt ? sT("student.report.lastProgress", { date: fmtDate(lastAt) }) : ""}
+        </p>
+      </div>
+      <div class="report-ring-wrap">
+        <div class="report-ring" style="--pct: ${Math.min(100, Math.max(0, overall))};">
+          <div class="report-ring-inner">
+            <div>
+              <div class="report-ring-val">${overall}%</div>
+              <div class="report-ring-label">${esc(sT("student.report.ringLabel"))}</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>`;
+
+  const statsHtml = `
+    <div class="report-stat-grid">
+      <div class="report-stat">
+        <span class="report-stat-val">${completedLessons}<span style="opacity:.45;font-weight:600;">/${totalLessons || "—"}</span></span>
+        <span class="report-stat-lbl">${esc(sT("student.report.statLessons"))}</span>
+        <span class="report-stat-sub">${esc(sT("student.report.statLessonsSub"))}</span>
+      </div>
+      <div class="report-stat">
+        <span class="report-stat-val">${doneMods}<span style="opacity:.45;font-weight:600;">/${modules.length}</span></span>
+        <span class="report-stat-lbl">${esc(sT("student.report.statModules"))}</span>
+        <span class="report-stat-sub">${esc(sT("student.report.statModulesSub", { prog: progMods, new: notStarted }))}</span>
+      </div>
+      <div class="report-stat">
+        <span class="report-stat-val">${solvedCtf.length}<span style="opacity:.45;font-weight:600;">/${ctfTotal || "—"}</span></span>
+        <span class="report-stat-lbl">${esc(sT("student.report.statCtf"))}</span>
+        <span class="report-stat-sub">${esc(sT("student.report.statCtfSub", { pts: ctfPoints }))}</span>
+      </div>
+      <div class="report-stat">
+        <span class="report-stat-val">${rank != null ? "#" + rank : "—"}</span>
+        <span class="report-stat-lbl">${esc(sT("student.report.statRank"))}</span>
+        <span class="report-stat-sub">${esc(sT("student.report.statRankSub"))}</span>
+      </div>
+    </div>`;
+
+  const ctfSection = ctfTotal
+    ? `
+    <div class="card" style="margin-bottom:16px;">
+      <div class="card-header"><h3>${esc(sT("student.report.ctfCardTitle"))}</h3></div>
+      <div class="card-body">
+        <div class="report-ctf-box">
+          <div class="report-ctf-stats">
+            <div class="report-ctf-item">${sT("student.report.ctfSolved", { n: solvedCtf.length, total: ctfTotal })}</div>
+            <div class="report-ctf-item">${sT("student.report.ctfPts", { pts: ctfPoints })}</div>
+            ${me ? `<div class="report-ctf-item">${sT("student.report.ctfPlatform", { pct: me.progress_pct ?? "—" })}</div>` : ""}
+          </div>
+          <a class="btn btn-primary btn-sm" href="student-ctf.html" style="text-decoration:none;">${esc(sT("student.report.ctfBtn"))}</a>
+        </div>
+      </div>
+    </div>`
+    : "";
+
+  let tableRows = "";
+  if (modules.length) {
+    tableRows = modules
+      .map((m) => {
+        const st = modStatus(m);
+        const p = Number(m.pct || 0);
+        const cl = Number(m.completed_lessons || 0);
+        const tl = Number(m.total_lessons || 0);
+        return `
+        <tr>
+          <td>
+            <div class="report-mod-title">${esc(m.title)}</div>
+            <div class="report-mod-meta">${esc(sT("student.report.orderMeta", { n: m.order_num ?? "—" }))}</div>
+          </td>
+          <td>${cl} / ${tl}</td>
+          <td>
+            <div class="report-mini-bar"><div style="width:${p}%;"></div></div>
+            <span style="font-size:.76rem;color:var(--text-3);font-family:var(--mono);">%${p}</span>
+          </td>
+          <td><span class="report-badge ${st.cls}">${st.text}</span></td>
+          <td style="font-size:.78rem;color:var(--text-3);white-space:nowrap;">${fmtDate(m.updated_at)}</td>
+        </tr>`;
+      })
+      .join("");
+  }
+
+  const tableHtml = modules.length
+    ? `
+    <div class="card">
+      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+        <h3>${esc(sT("student.report.tableTitle"))}</h3>
+        <a class="btn btn-ghost btn-sm" href="student-modules.html" style="text-decoration:none;">${esc(sT("student.report.tableModulesBtn"))}</a>
+      </div>
+      <div class="card-body" style="padding-top:0;">
+        <div class="report-table-wrap">
+          <table class="report-table">
+            <thead>
+              <tr>
+                <th>${esc(sT("student.report.thModule"))}</th>
+                <th>${esc(sT("student.report.thLessons"))}</th>
+                <th>${esc(sT("student.report.thProgress"))}</th>
+                <th>${esc(sT("student.report.thStatus"))}</th>
+                <th>${esc(sT("student.report.thUpdated"))}</th>
+              </tr>
+            </thead>
+            <tbody>${tableRows}</tbody>
+          </table>
+        </div>
+      </div>
+    </div>`
+    : `<div class="card"><div class="card-body report-empty">${esc(sT("student.report.noModules"))}</div></div>`;
+
+  root.innerHTML = heroHtml + statsHtml + ctfSection + tableHtml;
+}
+
+loadReport();
+</script>
+</body>
+</html>

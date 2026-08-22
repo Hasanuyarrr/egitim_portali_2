@@ -1,0 +1,691 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — Genel Sınav</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    .exam-q { border:1px solid var(--border); border-radius:12px; background:var(--bg); padding:12px; margin-bottom:10px; }
+    .exam-q-h { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+    .exam-q-h strong { font-size:.85rem; }
+    .exam-opt { display:flex; gap:8px; align-items:center; margin-top:8px; }
+    .exam-opt input[type="text"] { flex:1; }
+    .pill { display:inline-flex; align-items:center; gap:8px; padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:var(--bg); }
+    .pill label { margin:0; font-size:.82rem; color:var(--text-2); display:flex; align-items:center; gap:8px; cursor:pointer; }
+    .pill input[type="checkbox"] { accent-color: var(--red); }
+    .two { display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+    @media (max-width: 860px){ .two { grid-template-columns: 1fr; } }
+    /* Uzun soru listesinde modal taşmasın; gövde kaydırılsın */
+    #examModal.modal-overlay .modal {
+      max-width: 860px;
+      max-height: min(92vh, 920px);
+      display: flex;
+      flex-direction: column;
+    }
+    #examModal .modal-header,
+    #examModal .modal-footer {
+      flex-shrink: 0;
+    }
+    #examModal .modal-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+    .ge-results-table { width:100%; border-collapse:collapse; font-size:.8rem; margin-top:4px; }
+    .ge-results-table th, .ge-results-table td { padding:8px 10px; text-align:left; border-bottom:1px solid var(--border); }
+    .ge-results-table th { color:var(--text-3); font-weight:600; font-size:.72rem; text-transform:uppercase; letter-spacing:.04em; }
+    .ge-results-table td { color:var(--text); }
+  </style>
+</head>
+<body>
+<div class="admin-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <main class="admin-main">
+    <header class="topbar" id="topbar"></header>
+
+    <div class="page">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div id="examCount" style="font-size:.9rem;color:var(--text-2);"></div>
+        <button type="button" class="btn btn-primary" id="btnAddExam" onclick="openExamEditor(null)">+ Genel sınav ekle</button>
+      </div>
+
+      <div class="card" style="margin-top:12px;">
+        <div class="card-header">
+          <h3><span data-i18n="admin.exams.listTitle">Genel sınavlar</span> <span class="badge badge-gray" id="examCountBadge"></span></h3>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th data-i18n="common.title">Başlık</th>
+                <th data-i18n="admin.exams.colStatus">Durum</th>
+                <th style="text-align:right;" data-i18n="admin.exams.colDuration">Süre (dk)</th>
+                <th style="text-align:right;" data-i18n="admin.exams.colPass">Baraj</th>
+                <th style="text-align:right;" data-i18n="admin.exams.colAttempts">Deneme</th>
+                <th data-i18n="admin.exams.colWindow">Zaman aralığı</th>
+                <th style="width:180px;"></th>
+              </tr>
+            </thead>
+            <tbody id="examTableBody">
+              <tr><td colspan="8" style="text-align:center;padding:32px;"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card" style="margin-top:12px;">
+        <div class="card-header" style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;">
+          <h3 data-i18n="admin.exams.resultsTitle">Öğrenci sınav sonuçları</h3>
+          <a href="admin-results.html#exam" class="btn btn-ghost btn-sm" data-i18n="admin.exams.resultsLinkAll">Tümünü Sonuçlar’da gör</a>
+        </div>
+        <div class="table-wrap">
+          <div id="geResultsEmpty" style="display:none;text-align:center;color:var(--text-3);padding:24px;font-size:.86rem;" data-i18n="admin.exams.resultsEmpty">Henüz tamamlanmış genel sınav denemesi yok.</div>
+          <table class="ge-results-table" id="geResultsTable" style="display:none;margin:0;">
+            <thead>
+              <tr>
+                <th data-i18n="admin.results.thTime">Zaman</th>
+                <th data-i18n="admin.results.thGeneralExam">Genel sınav</th>
+                <th data-i18n="admin.results.thStudent">Öğrenci</th>
+                <th data-i18n="admin.results.thEmail">E-posta</th>
+                <th style="text-align:right;" data-i18n="admin.results.thScore">Skor</th>
+                <th data-i18n="admin.results.thOutcome">Sonuç</th>
+                <th style="text-align:right;" data-i18n="admin.results.thViolations">İhlal</th>
+              </tr>
+            </thead>
+            <tbody id="geResultsTbody"></tbody>
+          </table>
+          <p style="font-size:.72rem;color:var(--text-3);margin:10px 0 0;padding:0 4px;line-height:1.45;" data-i18n="admin.exams.resultsFootnote">Son 50 deneme gösterilir; tam liste için Sonuçlar sayfasına gidin.</p>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="examModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="examModalTitle" data-i18n="admin.exams.modalTitle">Genel sınav</h3>
+      <button type="button" class="modal-close" onclick="closeModal('examModal')" data-i18n-title="common.close" aria-label="Kapat">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="two">
+        <div class="field">
+          <label data-i18n="admin.exams.labelTitle">Başlık *</label>
+          <input type="text" id="exTitle" data-i18n-placeholder="admin.exams.phTitle" placeholder="Örn: Genel Güvenlik Sınavı">
+        </div>
+        <div class="field">
+          <label data-i18n="admin.exams.labelDesc">Açıklama</label>
+          <input type="text" id="exDesc" data-i18n-placeholder="admin.exams.phDesc" placeholder="Kısa açıklama (opsiyonel)">
+        </div>
+      </div>
+
+      <div class="two">
+        <div class="field">
+          <label data-i18n="admin.exams.labelDuration">Süre (dk)</label>
+          <input type="number" id="exDur" min="1" value="30">
+        </div>
+        <div class="field">
+          <label data-i18n="admin.exams.labelPass">Geçme puanı</label>
+          <input type="number" id="exPass" min="0" max="100" value="70">
+        </div>
+      </div>
+
+      <div class="field" style="max-width:220px;">
+        <label data-i18n="admin.exams.labelMaxAttempts">Deneme hakkı</label>
+        <input type="number" id="exMaxAttempts" min="1" value="3" data-i18n-title="admin.exams.hintMaxAttempts" title="Öğrenci bu sınavı kaç kez başlatabilir (her başlatma bir denemedir).">
+      </div>
+
+      <div class="two">
+        <div class="field">
+          <label data-i18n="admin.exams.labelStart">Başlangıç (opsiyonel)</label>
+          <input type="datetime-local" id="exStart">
+        </div>
+        <div class="field">
+          <label data-i18n="admin.exams.labelEnd">Bitiş (opsiyonel)</label>
+          <input type="datetime-local" id="exEnd">
+        </div>
+      </div>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 8px;">
+        <div class="pill"><label><input type="checkbox" id="exPublished"> <span data-i18n="admin.exams.pub">Yayında</span></label></div>
+        <div class="pill"><label><input type="checkbox" id="exReqCam" checked> <span data-i18n="admin.exams.reqCam">Kamera zorunlu</span></label></div>
+        <div class="pill"><label><input type="checkbox" id="exReqFs" checked> <span data-i18n="admin.exams.reqFs">Fullscreen zorunlu</span></label></div>
+        <div class="pill"><label><input type="checkbox" id="exBlockCp" checked> <span data-i18n="admin.exams.blockCp">Kopyala/Yapıştır engelle</span></label></div>
+        <div class="pill"><label><span data-i18n="admin.exams.maxViol">Maks. ihlal</span> <input type="number" id="exMaxV" min="0" value="3" style="width:76px;"></label></div>
+      </div>
+
+      <div style="margin:10px 0 8px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+        <div style="font-size:.72rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:var(--text-3);" data-i18n="admin.exams.questions">Sorular</div>
+        <button type="button" class="btn btn-ghost btn-sm" id="btnAddQ" onclick="addQuestion()">+ Soru ekle</button>
+      </div>
+      <div id="exQuestions"></div>
+
+      <div id="examErr" class="badge badge-red" style="display:none;padding:8px;border-radius:8px;font-size:.82rem;"></div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" class="btn btn-ghost" onclick="closeModal('examModal')" data-i18n="common.cancel">İptal</button>
+      <button type="button" class="btn btn-danger" id="exDeleteBtn" onclick="deleteExam()" style="display:none;" data-i18n="common.delete">Sil</button>
+      <button type="button" class="btn btn-primary" id="exSaveBtn" onclick="saveExam()" data-i18n="common.save">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<script src="theme-i18n.js"></script>
+<script src="admin-shared.js"></script>
+<script>
+(function () {
+  document.getElementById("sidebar").innerHTML = buildSidebar("exams");
+  document.getElementById("topbar").innerHTML  = buildTopbar(typeof t === "function" ? t("admin.nav.exams") : "Genel Sınav");
+  initTopbar(typeof t === "function" ? t("admin.nav.exams") : "Genel Sınav");
+  if (typeof t === "function") document.title = "SeCScop — " + t("admin.nav.exams");
+  if (typeof applyDataI18n === "function") applyDataI18n(document);
+  setupModalOverlayClose();
+
+  var exams = [];
+  var geAttempts = [];
+  var draft = null;
+
+  // Ortak, tırnak/backtick kaçışlı sürüm (admin-shared.js).
+  const esc = window.escapeHtml;
+
+  function toLocalInput(iso) {
+    if (!iso) return "";
+    var dt = new Date(iso);
+    if (Number.isNaN(dt.getTime())) return "";
+    var pad = function (n) { return String(n).padStart(2, "0"); };
+    return dt.getFullYear() + "-" + pad(dt.getMonth() + 1) + "-" + pad(dt.getDate()) + "T" + pad(dt.getHours()) + ":" + pad(dt.getMinutes());
+  }
+
+  function fromLocalInput(v) {
+    if (!v) return null;
+    try {
+      var dt = new Date(v);
+      return Number.isNaN(dt.getTime()) ? null : dt.toISOString();
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function showErr(msg) {
+    var e = document.getElementById("examErr");
+    e.textContent = msg || "";
+    e.style.display = msg ? "block" : "none";
+  }
+
+  function defaultQuestion() {
+    return { question: "", options: ["", "", "", ""], correct_index: 0 };
+  }
+
+  function addQuestion() {
+    if (!draft) return;
+    draft.questions.push(defaultQuestion());
+    renderQuestions();
+  }
+
+  function removeQuestion(i) {
+    if (!draft) return;
+    draft.questions.splice(i, 1);
+    renderQuestions();
+  }
+
+  function setCorrect(i, oi) {
+    if (!draft) return;
+    draft.questions[i].correct_index = oi;
+  }
+
+  function updateQText(i, v) {
+    draft.questions[i].question = v;
+  }
+
+  function updateOpt(i, oi, v) {
+    draft.questions[i].options[oi] = v;
+  }
+
+  function renderQuestions() {
+    var wrap = document.getElementById("exQuestions");
+    if (!draft || !wrap) return;
+    var qs = draft.questions || [];
+    if (!qs.length) {
+      wrap.innerHTML =
+        '<div class="empty-state" style="padding:24px 12px;"><span class="empty-icon">🧪</span><p data-i18n="admin.exams.noQuestionsYet">Henüz soru yok. “Soru ekle” ile başlayın.</p></div>';
+      if (typeof applyDataI18n === "function") applyDataI18n(wrap);
+      return;
+    }
+    wrap.innerHTML = qs
+      .map(function (q, i) {
+        return (
+          '<div class="exam-q">' +
+          '<div class="exam-q-h">' +
+          "<strong>Soru " +
+          (i + 1) +
+          "</strong>" +
+          '<button type="button" class="btn btn-ghost btn-sm" onclick="removeQuestion(' +
+          i +
+          ')">' +
+          (typeof t === "function" ? t("common.delete") : "Sil") +
+          "</button>" +
+          "</div>" +
+          '<div class="field" style="margin-top:8px;">' +
+          '<input type="text" value="' +
+          esc(q.question) +
+          '" oninput="updateQText(' +
+          i +
+          ', this.value)" placeholder="' +
+          esc(typeof t === "function" ? t("admin.exams.qTextPh") : "Soru metni") +
+          '">' +
+          "</div>" +
+          (q.options || [])
+            .map(function (opt, oi) {
+              return (
+                '<div class="exam-opt">' +
+                '<input type="radio" name="ex_correct_' +
+                i +
+                '" ' +
+                (Number(q.correct_index) === oi ? "checked" : "") +
+                ' onchange="setCorrect(' +
+                i +
+                ", " +
+                oi +
+                ')">' +
+                '<input type="text" value="' +
+                esc(opt) +
+                '" oninput="updateOpt(' +
+                i +
+                ", " +
+                oi +
+                ', this.value)" placeholder="' +
+                esc((typeof t === "function" ? t("admin.exams.optPh") : "Seçenek {n}").replace("{n}", String(oi + 1))) +
+                '">' +
+                "</div>"
+              );
+            })
+            .join("") +
+          "</div>"
+        );
+      })
+      .join("");
+  }
+
+  window.removeQuestion = removeQuestion;
+  window.updateQText = updateQText;
+  window.updateOpt = updateOpt;
+  window.setCorrect = setCorrect;
+  window.addQuestion = addQuestion;
+
+  function openExamEditor(id) {
+    var ex = id ? exams.find(function (x) { return Number(x.id) === Number(id); }) : null;
+    draft = ex
+      ? JSON.parse(JSON.stringify(ex))
+      : {
+          id: null,
+          title: "",
+          description: "",
+          is_published: false,
+          duration_minutes: 30,
+          pass_score: 70,
+          max_attempts: 3,
+          starts_at: null,
+          ends_at: null,
+          proctor: {
+            require_camera: true,
+            require_fullscreen: true,
+            block_copy_paste: true,
+            max_violations: 3,
+            auto_submit_on_violation: true,
+          },
+          questions: [],
+        };
+
+    document.getElementById("examModalTitle").textContent = ex
+      ? (typeof t === "function" ? t("admin.exams.editTitle") : "Sınavı düzenle")
+      : (typeof t === "function" ? t("admin.exams.newTitle") : "Yeni genel sınav");
+    document.getElementById("exTitle").value = draft.title || "";
+    document.getElementById("exDesc").value = draft.description || "";
+    document.getElementById("exDur").value = Number(draft.duration_minutes || 30);
+    document.getElementById("exPass").value = Number(draft.pass_score || 70);
+    document.getElementById("exMaxAttempts").value = Math.max(1, Number(draft.max_attempts != null ? draft.max_attempts : 3));
+    document.getElementById("exStart").value = toLocalInput(draft.starts_at);
+    document.getElementById("exEnd").value = toLocalInput(draft.ends_at);
+    document.getElementById("exPublished").checked = !!draft.is_published;
+    document.getElementById("exReqCam").checked = !!draft.proctor && !!draft.proctor.require_camera;
+    document.getElementById("exReqFs").checked = !!draft.proctor && !!draft.proctor.require_fullscreen;
+    document.getElementById("exBlockCp").checked = !draft.proctor || draft.proctor.block_copy_paste !== false;
+    document.getElementById("exMaxV").value = Number((draft.proctor && draft.proctor.max_violations) != null ? draft.proctor.max_violations : 3);
+
+    document.getElementById("exDeleteBtn").style.display = ex ? "inline-flex" : "none";
+    showErr("");
+    renderQuestions();
+    openModal("examModal");
+  }
+
+  window.openExamEditor = openExamEditor;
+
+  function collectDraftFromForm() {
+    if (!draft) return null;
+    draft.title = document.getElementById("exTitle").value.trim();
+    draft.description = document.getElementById("exDesc").value.trim();
+    draft.duration_minutes = Math.max(1, Number(document.getElementById("exDur").value || 30));
+    draft.pass_score = Math.max(0, Math.min(100, Number(document.getElementById("exPass").value || 70)));
+    draft.max_attempts = Math.max(1, Number(document.getElementById("exMaxAttempts").value || 1));
+    draft.starts_at = fromLocalInput(document.getElementById("exStart").value);
+    draft.ends_at = fromLocalInput(document.getElementById("exEnd").value);
+    draft.is_published = !!document.getElementById("exPublished").checked;
+    draft.proctor = {
+      require_camera: !!document.getElementById("exReqCam").checked,
+      require_fullscreen: !!document.getElementById("exReqFs").checked,
+      block_copy_paste: !!document.getElementById("exBlockCp").checked,
+      max_violations: Math.max(0, Number(document.getElementById("exMaxV").value || 0)),
+      auto_submit_on_violation: true,
+    };
+    return draft;
+  }
+
+  function saveExam() {
+    var btn = document.getElementById("exSaveBtn");
+    btn.disabled = true;
+    btn.textContent = typeof t === "function" ? t("common.saving") : "Kaydediliyor…";
+    showErr("");
+    var d = collectDraftFromForm();
+    if (!d || !d.title) {
+      btn.disabled = false;
+      btn.textContent = typeof t === "function" ? t("common.save") : "Kaydet";
+      showErr(typeof t === "function" ? t("admin.exams.errTitle") : "Başlık gerekli.");
+      return;
+    }
+    var payload = {
+      title: d.title,
+      description: d.description,
+      is_published: d.is_published,
+      duration_minutes: d.duration_minutes,
+      pass_score: d.pass_score,
+      max_attempts: d.max_attempts,
+      starts_at: d.starts_at,
+      ends_at: d.ends_at,
+      proctor: d.proctor,
+      questions: d.questions,
+    };
+    fetch(API + "/exams" + (d.id ? "/" + d.id : ""), {
+      method: d.id ? "PUT" : "POST",
+      headers: { Authorization: "Bearer " + _token, "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    })
+      .then(function (res) {
+        return res.json().then(function (data) {
+          return { res: res, data: data };
+        });
+      })
+      .then(function (x) {
+        btn.disabled = false;
+        btn.textContent = typeof t === "function" ? t("common.save") : "Kaydet";
+        if (!x.res.ok) {
+          showErr((x.data && x.data.error) || "Kaydedilemedi.");
+          return;
+        }
+        closeModal("examModal");
+        toast(typeof t === "function" ? t("common.saved") : "Kaydedildi.");
+        reloadPage();
+      })
+      .catch(function () {
+        btn.disabled = false;
+        btn.textContent = typeof t === "function" ? t("common.save") : "Kaydet";
+        showErr("Kaydedilemedi.");
+      });
+  }
+
+  window.saveExam = saveExam;
+
+  function deleteExam() {
+    if (!draft || !draft.id) return;
+    var msg = typeof t === "function" ? t("admin.exams.delConfirm") : "Bu sınav silinsin mi?";
+    if (!confirm(msg)) return;
+    var btn = document.getElementById("exDeleteBtn");
+    btn.disabled = true;
+    btn.textContent = typeof t === "function" ? t("common.loading") : "Siliniyor…";
+    fetch(API + "/exams/" + draft.id, { method: "DELETE", headers: { Authorization: "Bearer " + _token } })
+      .then(function (res) {
+        btn.disabled = false;
+        btn.textContent = typeof t === "function" ? t("common.delete") : "Sil";
+        if (!res.ok) {
+          toast(typeof t === "function" ? t("admin.exams.delFail") : "Silinemedi.", "error");
+          return;
+        }
+        closeModal("examModal");
+        toast(typeof t === "function" ? t("admin.exams.deleted") : "Silindi.");
+        reloadPage();
+      })
+      .catch(function () {
+        btn.disabled = false;
+        btn.textContent = typeof t === "function" ? t("common.delete") : "Sil";
+        toast("Silinemedi.", "error");
+      });
+  }
+
+  window.deleteExam = deleteExam;
+
+  function statusHtml(ex) {
+    var pub = !!ex.is_published;
+    var now = Date.now();
+    var s = ex.starts_at ? new Date(ex.starts_at).getTime() : null;
+    var e = ex.ends_at ? new Date(ex.ends_at).getTime() : null;
+    var inWindow = (!s || now >= s) && (!e || now <= e);
+    if (!pub) return '<span class="badge badge-gray">' + esc(typeof t === "function" ? t("admin.exams.stDraft") : "Taslak") + "</span>";
+    if (!inWindow) return '<span class="badge badge-orange">' + esc(typeof t === "function" ? t("admin.exams.stOut") : "Zaman dışı") + "</span>";
+    return '<span class="badge badge-green">' + esc(typeof t === "function" ? t("admin.exams.stLive") : "Yayında") + "</span>";
+  }
+
+  function windowText(ex) {
+    var s = ex.starts_at ? new Date(ex.starts_at) : null;
+    var e = ex.ends_at ? new Date(ex.ends_at) : null;
+    var loc = typeof getLang === "function" && getLang() === "en" ? "en-US" : "tr-TR";
+    function fmt(d) {
+      if (!d) return "—";
+      return d.toLocaleString(loc, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+    }
+    if (!s && !e) return typeof t === "function" ? t("admin.exams.windowAny") : "Her zaman";
+    return fmt(s) + " → " + fmt(e);
+  }
+
+  /** Öğrenci sınav sayfasına tam URL (regex hatası yok — new URL kullan) */
+  function studentExamUrl(id) {
+    try {
+      return new URL("student-exam.html?id=" + encodeURIComponent(String(id)), window.location.href).href;
+    } catch (e2) {
+      return location.origin + "/admin/student-exam.html?id=" + encodeURIComponent(String(id));
+    }
+  }
+
+  function copyStudentLink(id) {
+    var url = studentExamUrl(id);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(
+        function () {
+          toast(typeof t === "function" ? t("admin.exams.linkCopied") : "Link kopyalandı.");
+        },
+        function () {
+          window.prompt(typeof t === "function" ? t("admin.exams.linkPrompt") : "Link:", url);
+        }
+      );
+    } else {
+      window.prompt("Link:", url);
+    }
+  }
+
+  window.copyStudentLink = copyStudentLink;
+
+  function fmtSubmittedAt(iso) {
+    if (!iso) return "—";
+    var d = new Date(iso);
+    var loc = typeof getLang === "function" && getLang() === "en" ? "en-US" : "tr-TR";
+    return d.toLocaleString(loc, { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" });
+  }
+
+  function renderGeResults() {
+    var tbody = document.getElementById("geResultsTbody");
+    var tbl = document.getElementById("geResultsTable");
+    var empty = document.getElementById("geResultsEmpty");
+    if (!tbody || !tbl || !empty) return;
+    var list = (geAttempts || []).slice(0, 50);
+    if (!list.length) {
+      tbl.style.display = "none";
+      empty.style.display = "block";
+      return;
+    }
+    empty.style.display = "none";
+    tbl.style.display = "table";
+    tbody.innerHTML = list
+      .map(function (a) {
+        var passed = a.passed === true || a.passed === "t" || a.passed === 1;
+        var passLbl = passed
+          ? typeof t === "function"
+            ? t("admin.results.examPass")
+            : "Geçti"
+          : typeof t === "function"
+            ? t("admin.results.examFail")
+            : "Kaldı";
+        var passStyle = passed ? "color:#16a34a;font-weight:600;" : "color:var(--text-3);";
+        var viol = a.violations_count != null ? String(a.violations_count) : "—";
+        return (
+          "<tr>" +
+          '<td style="font-family:var(--mono);font-size:.78rem;white-space:nowrap;">' +
+          esc(fmtSubmittedAt(a.submitted_at)) +
+          "</td>" +
+          "<td>" +
+          esc(a.exam_title || "—") +
+          "</td>" +
+          "<td>" +
+          esc(a.user_name || "—") +
+          "</td>" +
+          '<td style="font-size:.78rem;color:var(--text-2);">' +
+          esc(a.email || "") +
+          "</td>" +
+          '<td style="text-align:right;font-family:var(--mono);">' +
+          (a.score != null ? esc(String(a.score)) : "—") +
+          "</td>" +
+          '<td style="' +
+          passStyle +
+          '">' +
+          esc(passLbl) +
+          "</td>" +
+          '<td style="text-align:right;font-family:var(--mono);font-size:.78rem;">' +
+          esc(viol) +
+          "</td>" +
+          "</tr>"
+        );
+      })
+      .join("");
+  }
+
+  function renderTable() {
+    var tbody = document.getElementById("examTableBody");
+    document.getElementById("examCountBadge").textContent = String(exams.length);
+    var countLbl = typeof t === "function" ? t("admin.exams.countN", { n: exams.length }) : exams.length + " sınav";
+    document.getElementById("examCount").textContent = countLbl;
+    if (!exams.length) {
+      tbody.innerHTML =
+        '<tr><td colspan="8"><div class="empty-state"><span class="empty-icon">🧪</span><p data-i18n="admin.exams.empty">' +
+        (typeof t === "function" ? t("admin.exams.empty") : "Henüz genel sınav yok.") +
+        "</p></div></td></tr>";
+      if (typeof applyDataI18n === "function") applyDataI18n(document.getElementById("examTableBody"));
+      return;
+    }
+    tbody.innerHTML = exams
+      .map(function (ex) {
+        return (
+          "<tr>" +
+          '<td style="font-family:var(--mono);color:var(--text-3);">' +
+          esc(ex.id) +
+          "</td>" +
+          "<td>" +
+          "<strong>" +
+          esc(ex.title) +
+          "</strong>" +
+          '<div style="font-size:.78rem;color:var(--text-3);margin-top:3px;">' +
+          esc(ex.description || "") +
+          "</div>" +
+          '<div style="font-size:.72rem;color:var(--text-3);margin-top:4px;">' +
+          (ex.questions && ex.questions.length ? ex.questions.length + " soru" : "0 soru") +
+          " · " +
+          (ex.proctor && ex.proctor.require_camera ? "📷 kamera" : "📷 opsiyonel") +
+          " · " +
+          (ex.proctor && ex.proctor.require_fullscreen ? "⛶ fullscreen" : "⛶ opsiyonel") +
+          "</div>" +
+          "</td>" +
+          "<td>" +
+          statusHtml(ex) +
+          "</td>" +
+          '<td style="text-align:right;font-family:var(--mono);" data-sort="' +
+          Number(ex.duration_minutes || 0) +
+          '">' +
+          Number(ex.duration_minutes || 0) +
+          "</td>" +
+          '<td style="text-align:right;font-family:var(--mono);" data-sort="' +
+          Number(ex.pass_score || 0) +
+          '">' +
+          Number(ex.pass_score || 0) +
+          "</td>" +
+          '<td style="text-align:right;font-family:var(--mono);" data-sort="' +
+          Number(ex.max_attempts || 1) +
+          '">' +
+          Number(ex.max_attempts || 1) +
+          "</td>" +
+          '<td data-sort="' +
+          (ex.starts_at ? new Date(ex.starts_at).getTime() || 0 : 0) +
+          '">' +
+          esc(windowText(ex)) +
+          "</td>" +
+          "<td>" +
+          '<div style="display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap;">' +
+          '<button type="button" class="btn btn-ghost btn-sm" onclick="openExamEditor(' +
+          ex.id +
+          ')">' +
+          (typeof t === "function" ? t("admin.exams.btnEdit") : "Düzenle") +
+          "</button>" +
+          '<button type="button" class="btn btn-ghost btn-sm" onclick="copyStudentLink(' +
+          ex.id +
+          ')">' +
+          (typeof t === "function" ? t("admin.exams.btnLink") : "Link") +
+          "</button>" +
+          "</div>" +
+          "</td>" +
+          "</tr>"
+        );
+      })
+      .join("");
+  }
+
+  function reloadPage() {
+    var tbody = document.getElementById("examTableBody");
+    Promise.all([apiFetch("/exams").catch(function () { return []; }), apiFetch("/exams/attempts").catch(function () { return { attempts: [] }; })])
+      .then(function (pair) {
+        var list = pair[0];
+        var att = pair[1];
+        exams = Array.isArray(list) ? list : [];
+        geAttempts = att && !att.error && Array.isArray(att.attempts) ? att.attempts : [];
+        renderTable();
+        renderGeResults();
+      })
+      .catch(function () {
+        tbody.innerHTML =
+          '<tr><td colspan="8"><div class="empty-state"><span class="empty-icon">⚠️</span><p>' +
+          (typeof t === "function" ? t("admin.exams.loadErr") : "Liste yüklenemedi. Sunucuyu ve girişi kontrol edin.") +
+          "</p></div></td></tr>";
+      });
+  }
+
+  window.reloadPage = reloadPage;
+  reloadPage();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — CTF</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    .ctf-row td { vertical-align:middle; }
+    .ctf-row { cursor:pointer; transition:background .12s; }
+    .ctf-row:hover td { background:var(--bg-2); }
+    .solve-bar { display:flex; align-items:center; gap:8px; }
+
+    /* Drop zones */
+    #fileDropZone.drag-over,
+    #editFileDropZone.drag-over { border-color:var(--red); background:var(--red-light); color:var(--red); }
+    #fileDropZone.has-file,
+    #editFileDropZone.has-file  { border-color:var(--green); background:var(--green-light); color:var(--green); }
+
+    /* Stats mini-bar */
+    .stats-mini { display:flex; gap:6px; flex-wrap:wrap; }
+    .stats-mini-item {
+      display:flex; flex-direction:column; gap:2px; flex:1; min-width:100px;
+      background:var(--bg); border:1px solid var(--border); border-radius:var(--radius-sm);
+      padding:12px 14px;
+    }
+    .stats-mini-val  { font-size:1.3rem; font-weight:800; font-family:var(--mono); color:var(--text); }
+    .stats-mini-label{ font-size:.72rem; color:var(--text-3); font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
+
+    /* Solver rows */
+    .solver-row {
+      display:flex; align-items:center; gap:10px; padding:9px 0;
+      border-bottom:1px solid var(--border);
+    }
+    .solver-row:last-child { border-bottom:none; }
+    .solver-rank { font-size:.78rem; font-weight:800; font-family:var(--mono); color:var(--text-3); width:22px; text-align:center; flex-shrink:0; }
+    .solver-name { flex:1; font-size:.86rem; font-weight:500; color:var(--text); }
+    .solver-time { font-size:.74rem; font-family:var(--mono); color:var(--text-3); }
+
+    /* Donut chart wrapper */
+    .donut-wrap { position:relative; width:90px; height:90px; flex-shrink:0; }
+    .donut-wrap svg { transform:rotate(-90deg); }
+    .donut-center { position:absolute; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column; }
+    .donut-pct  { font-size:1rem; font-weight:800; font-family:var(--mono); color:var(--text); line-height:1; }
+    .donut-sub  { font-size:.6rem; color:var(--text-3); }
+
+    /* Per-challenge bar chart */
+    .bar-chart-row { display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+    .bar-chart-label { font-size:.78rem; color:var(--text-2); width:110px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex-shrink:0; }
+    .bar-chart-track { flex:1; background:var(--border); border-radius:99px; height:7px; overflow:hidden; }
+    .bar-chart-fill  { height:100%; border-radius:99px; background:var(--red); transition:width .5s ease; }
+    .bar-chart-count { font-size:.74rem; font-family:var(--mono); color:var(--text-3); min-width:26px; text-align:right; }
+
+    /* Difficulty filter pills */
+    .diff-pill {
+      padding:4px 11px; border-radius:99px; font-size:.77rem; font-weight:600;
+      cursor:pointer; border:1px solid var(--border); background:transparent; color:var(--text-2);
+      transition:all .15s;
+    }
+    .diff-pill.active { background:var(--red); color:#fff; border-color:var(--red); }
+    .diff-pill:not(.active):hover { background:var(--bg-2); }
+
+    /* Table row click stop */
+    .action-cell { text-align:right; }
+    .action-cell button { pointer-events:all; }
+    .solve-timeline-wrap { position:relative; width:100%; height:220px; }
+    .ctf-form-grid {
+      display:grid;
+      grid-template-columns:repeat(4,minmax(0,1fr));
+      gap:10px;
+    }
+    @media (max-width: 980px) {
+      .ctf-form-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+    }
+    @media (max-width: 620px) {
+      .ctf-form-grid { grid-template-columns:1fr; }
+    }
+
+    .ctf-card-toggles {
+      display:flex;flex-direction:column;gap:4px;margin:0 0 10px;padding:8px 10px;
+      background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+      font-size:.76rem;color:var(--text-2);
+    }
+    .ctf-card-toggles label {
+      display:flex;align-items:flex-start;gap:8px;cursor:pointer;line-height:1.35;margin:0;
+    }
+    .ctf-card-toggles input[type="checkbox"] { margin-top:3px;flex-shrink:0;accent-color:var(--red); }
+  </style>
+</head>
+<body>
+<div class="admin-layout">
+
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <main class="admin-main">
+    <header class="topbar" id="topbar"></header>
+
+    <div class="page">
+
+      <!-- Top stats cards -->
+      <div class="grid-4">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--red-light);color:var(--red);">🚩</div>
+          <div class="stat-info"><div class="stat-value" id="statTotal"><div class="spinner"></div></div><div class="stat-label" data-i18n="admin.ctf.statTotal">Toplam Görev</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--green-light);color:var(--green);">✅</div>
+          <div class="stat-info"><div class="stat-value" id="statSolves"><div class="spinner"></div></div><div class="stat-label" data-i18n="admin.ctf.statSolves">Toplam Çözüm</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--blue-light);color:var(--blue);">💎</div>
+          <div class="stat-info"><div class="stat-value" id="statPoints"><div class="spinner"></div></div><div class="stat-label" data-i18n="admin.ctf.statPoints">Toplam Puan Havuzu</div></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--orange-light);color:var(--orange);">🎯</div>
+          <div class="stat-info"><div class="stat-value" id="statRate"><div class="spinner"></div></div><div class="stat-label" data-i18n="admin.ctf.statRate">Ort. Çözüm Oranı</div></div>
+        </div>
+      </div>
+
+      <!-- Two-col layout: table + sidebar stats -->
+      <div class="two-col">
+        <div class="col-main">
+
+          <!-- Toolbar -->
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+            <!-- Category filter tabs -->
+            <div style="display:flex;gap:4px;flex-wrap:wrap;">
+              <button class="filter-tab active" data-cat="all"      onclick="setCatFilter('all')" data-i18n="common.all">Tümü</button>
+              <button class="filter-tab" data-cat="web"            onclick="setCatFilter('web')" data-i18n="admin.ctf.cat.web">🌐 Web</button>
+              <button class="filter-tab" data-cat="crypto"         onclick="setCatFilter('crypto')" data-i18n="admin.ctf.cat.crypto">🔒 Kripto</button>
+              <button class="filter-tab" data-cat="forensics"      onclick="setCatFilter('forensics')" data-i18n="admin.ctf.cat.forensics">🔍 Forensik</button>
+              <button class="filter-tab" data-cat="pwn"            onclick="setCatFilter('pwn')" data-i18n="admin.ctf.cat.pwn">⚡ Pwn</button>
+              <button class="filter-tab" data-cat="network"        onclick="setCatFilter('network')" data-i18n="admin.ctf.cat.network">📡 Ağ</button>
+              <button class="filter-tab" data-cat="misc"           onclick="setCatFilter('misc')" data-i18n="admin.ctf.catMisc">🎲 Diğer</button>
+            </div>
+            <button class="btn btn-primary" onclick="openAddCtf()" data-i18n="admin.ctf.addTask">+ Görev Ekle</button>
+          </div>
+
+          <!-- Difficulty + solve filter row -->
+          <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;">
+            <div style="display:flex;gap:6px;align-items:center;">
+              <span style="font-size:.78rem;color:var(--text-3);font-weight:600;" data-i18n="admin.ctf.diffLabel">Zorluk:</span>
+              <button class="diff-pill active" data-diff="all"    onclick="setDiffFilter('all')" data-i18n="common.all">Tümü</button>
+              <button class="diff-pill" data-diff="easy"          onclick="setDiffFilter('easy')" data-i18n="admin.diff.easy">Kolay</button>
+              <button class="diff-pill" data-diff="medium"        onclick="setDiffFilter('medium')" data-i18n="admin.diff.medium">Orta</button>
+              <button class="diff-pill" data-diff="hard"          onclick="setDiffFilter('hard')" data-i18n="admin.diff.hard">Zor</button>
+              <button class="diff-pill" data-diff="expert"        onclick="setDiffFilter('expert')" data-i18n="admin.diff.expert">Uzman</button>
+            </div>
+            <div style="display:flex;gap:6px;align-items:center;">
+              <span style="font-size:.78rem;color:var(--text-3);font-weight:600;" data-i18n="admin.ctf.solveLabel">Çözüm:</span>
+              <button class="diff-pill active" data-solve="all"    onclick="setSolveFilter('all')" data-i18n="common.all">Tümü</button>
+              <button class="diff-pill" data-solve="solved"        onclick="setSolveFilter('solved')" data-i18n="admin.ctf.solvedTab">Çözülenler</button>
+              <button class="diff-pill" data-solve="unsolved"      onclick="setSolveFilter('unsolved')" data-i18n="admin.ctf.unsolvedTab">Çözülmeyenler</button>
+            </div>
+          </div>
+
+          <!-- Search + count row -->
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="search-box" style="flex:1;max-width:260px;">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="searchInput" placeholder="Görev ara…" data-i18n-placeholder="admin.ctf.searchPh" oninput="applyAndRender()">
+            </div>
+            <span class="badge badge-gray" id="ctfCount" style="margin-left:auto;"></span>
+          </div>
+
+          <!-- CTF table -->
+          <div class="card" style="margin-top:0;">
+            <div class="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th data-i18n="admin.ctf.thTask">Görev</th>
+                    <th data-i18n="admin.ctf.thCat">Kategori</th>
+                    <th data-i18n="admin.ctf.thDiff">Zorluk</th>
+                    <th data-i18n="admin.ctf.thPoints">Puan</th>
+                    <th data-i18n="admin.ctf.thAttempts">Deneme</th>
+                    <th data-i18n="admin.ctf.thSolveRate">Çözüm Oranı</th>
+                    <th class="action-cell" style="width:80px;"></th>
+                  </tr>
+                </thead>
+                <tbody id="ctfBody">
+                  <tr><td colspan="7" style="text-align:center;padding:32px;"><div class="spinner"></div></td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right sidebar: stats -->
+        <div class="col-side">
+
+          <!-- Overall solve rate donut -->
+          <div class="card">
+            <div class="card-header"><h3 data-i18n="admin.ctf.cardSolveDist">Çözüm Dağılımı</h3></div>
+            <div class="card-body" style="padding-top:8px;">
+              <div style="display:flex;align-items:center;gap:16px;margin-bottom:12px;">
+                <div class="donut-wrap" id="donutWrap">
+                  <svg width="90" height="90" viewBox="0 0 90 90">
+                    <circle cx="45" cy="45" r="35" fill="none" stroke="var(--border)" stroke-width="10"/>
+                    <circle cx="45" cy="45" r="35" fill="none" stroke="var(--red)" stroke-width="10"
+                      stroke-dasharray="0 220" id="donutArc" style="transition:stroke-dasharray .6s ease;"/>
+                  </svg>
+                  <div class="donut-center">
+                    <div class="donut-pct" id="donutPct">0%</div>
+                    <div class="donut-sub" data-i18n="admin.ctf.donutAvgShort">ort.</div>
+                  </div>
+                </div>
+                <div style="flex:1;">
+                  <div class="stats-mini">
+                    <div class="stats-mini-item">
+                      <div class="stats-mini-val" id="sideStatSolved">—</div>
+                      <div class="stats-mini-label" data-i18n="admin.ctf.sideSolved">Çözülen</div>
+                    </div>
+                    <div class="stats-mini-item">
+                      <div class="stats-mini-val" id="sideStatUnsolved">—</div>
+                      <div class="stats-mini-label" data-i18n="admin.ctf.sideUnsolved">Çözülmeyen</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <!-- Per-challenge bars -->
+              <div id="challengeBars" style="margin-top:4px;"></div>
+            </div>
+          </div>
+
+          <!-- Most popular / hardest -->
+          <div class="card">
+            <div class="card-header"><h3 data-i18n="admin.ctf.cardTopSolved">En çok çözülen</h3></div>
+            <div class="card-body" id="topSolvedList" style="padding-top:6px;">
+              <div style="text-align:center;"><div class="spinner"></div></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header"><h3 data-i18n="admin.ctf.cardLeastSolved">En az çözülen</h3></div>
+            <div class="card-body" id="leastSolvedList" style="padding-top:6px;">
+              <div style="text-align:center;"><div class="spinner"></div></div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- ── CTF Detail Drawer ───────────────────────────────────── -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer" id="ctfDrawer" style="width:500px;">
+  <div class="drawer-header">
+    <div id="drawerDiffBadge"></div>
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:.74rem;font-family:var(--mono);color:var(--text-3);" id="drawerCat">—</div>
+      <div style="font-weight:700;font-size:1rem;color:var(--text);margin-top:1px;" id="drawerTitle">—</div>
+    </div>
+    <button class="drawer-close" onclick="closeDrawer()">✕</button>
+  </div>
+
+  <div class="drawer-body">
+
+    <!-- Mini stats -->
+    <div class="stats-mini">
+      <div class="stats-mini-item">
+        <div class="stats-mini-val" id="dSolveCount">—</div>
+        <div class="stats-mini-label" data-i18n="admin.ctf.drLabelSolves">Çözüm</div>
+      </div>
+      <div class="stats-mini-item">
+        <div class="stats-mini-val" id="dSolveRate">—</div>
+        <div class="stats-mini-label" data-i18n="admin.ctf.drLabelRate">Oran</div>
+      </div>
+      <div class="stats-mini-item">
+        <div class="stats-mini-val" id="dPoints">—</div>
+        <div class="stats-mini-label" data-i18n="admin.ctf.drLabelPoints">Puan</div>
+      </div>
+      <div class="stats-mini-item">
+        <div class="stats-mini-val" id="dUnsolved">—</div>
+        <div class="stats-mini-label" data-i18n="admin.ctf.drLabelNotSolved">Çözmedi</div>
+      </div>
+    </div>
+
+    <!-- Description -->
+    <div id="dDescBlock" style="display:none;">
+      <div class="drawer-section-title" data-i18n="admin.ctf.drSectionDesc">Açıklama</div>
+      <p id="dDesc" style="font-size:.86rem;color:var(--text-2);line-height:1.65;margin:0;"></p>
+    </div>
+
+    <!-- File -->
+    <div id="dFileBlock" style="display:none;">
+      <div class="drawer-section-title" data-i18n="admin.ctf.drSectionFile">Ek dosya</div>
+      <a id="dFileLink" href="#" target="_blank"
+        style="display:inline-flex;align-items:center;gap:6px;font-size:.85rem;color:var(--blue);padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);text-decoration:none;">
+        📎 <span id="dFileName">—</span>
+      </a>
+    </div>
+
+    <!-- First / last solve -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+      <div class="stats-mini-item" id="dFirstSolveBlock">
+        <div class="stats-mini-label" data-i18n="admin.ctf.drFirstSolve">İlk çözüm</div>
+        <div style="font-size:.82rem;font-weight:600;color:var(--green);margin-top:3px;" id="dFirstSolve">—</div>
+      </div>
+      <div class="stats-mini-item" id="dLastSolveBlock">
+        <div class="stats-mini-label" data-i18n="admin.ctf.drLastSolve">Son çözüm</div>
+        <div style="font-size:.82rem;font-weight:600;color:var(--text-2);margin-top:3px;" id="dLastSolve">—</div>
+      </div>
+    </div>
+
+    <!-- Solve progress bar -->
+    <div>
+      <div style="display:flex;justify-content:space-between;font-size:.75rem;color:var(--text-3);margin-bottom:5px;">
+        <span data-i18n="admin.ctf.drSolveProgress">Çözüm ilerlemesi</span>
+        <span id="dRateTxt">0%</span>
+      </div>
+      <div class="progress-bar" style="height:8px;border-radius:6px;">
+        <div class="progress-fill" id="dRateBar" style="width:0%;border-radius:6px;transition:width .5s ease;"></div>
+      </div>
+    </div>
+
+    <!-- Solver list -->
+    <div>
+      <div class="drawer-section-title"><span data-i18n="admin.ctf.drSolvers">Çözenler</span> <span id="dSolverCountBadge" class="badge badge-green" style="margin-left:4px;"></span></div>
+      <div id="drawerSolvers">
+        <div style="text-align:center;padding:16px;"><div class="spinner"></div></div>
+      </div>
+    </div>
+
+    <div>
+      <div class="drawer-section-title" data-i18n="admin.ctf.drTimelineTitle">📈 Çözüm zaman çizgisi</div>
+      <div class="solve-timeline-wrap">
+        <canvas id="solverTimelineChart"></canvas>
+      </div>
+      <div id="solverTimelineEmpty" style="display:none;font-size:.8rem;color:var(--text-3);padding:8px 2px;" data-i18n="admin.ctf.drTimelineEmpty">
+        Bu görev için henüz çizilecek çözüm verisi yok.
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex;gap:8px;padding-top:4px;border-top:1px solid var(--border);" id="drawerActions">
+      <button class="btn btn-ghost" style="flex:1;" id="drawerEditBtn" onclick="" data-i18n="admin.ctf.btnDrawerEdit">✏️ Düzenle</button>
+      <button class="btn btn-danger" style="flex:1;" id="drawerDeleteBtn" onclick="" data-i18n="admin.ctf.btnDrawerDelete">🗑 Sil</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: CTF Görevi Ekle ──────────────────────────────── -->
+<div class="modal-overlay" id="addCtfModal">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-header">
+      <h3 data-i18n="admin.ctf.modalAddTitle">🚩 Yeni CTF görevi</h3>
+      <button class="modal-close" onclick="closeModal('addCtfModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label data-i18n="admin.ctf.labelTaskTitle">Görev başlığı *</label><input type="text" id="ctfTitle" placeholder="SQLi temelleri" data-i18n-placeholder="admin.ctf.phTaskTitle"></div>
+      <div class="field">
+        <label data-i18n="admin.ctf.labelTaskDesc">Açıklama</label>
+        <textarea id="ctfDesc" rows="2" placeholder="Görev açıklaması…" data-i18n-placeholder="admin.ctf.phTaskDesc"
+          style="width:100%;background:var(--bg);border:1px solid var(--border-2);border-radius:var(--radius-sm);padding:10px;font-size:.88rem;color:var(--text);resize:none;font-family:inherit;"></textarea>
+      </div>
+      <div class="ctf-form-grid">
+        <div class="field" style="flex:1;">
+          <label data-i18n="admin.ctf.labelCategory">Kategori</label>
+          <select id="ctfCat" style="width:100%;background:var(--bg);border:1px solid var(--border-2);border-radius:var(--radius-sm);padding:9px 10px;font-size:.88rem;color:var(--text);">
+            <option value="web" data-i18n="admin.ctf.cat.web">🌐 Web</option><option value="crypto" data-i18n="admin.ctf.cat.crypto">🔒 Kripto</option>
+            <option value="forensics" data-i18n="admin.ctf.cat.forensics">🔍 Forensik</option><option value="pwn" data-i18n="admin.ctf.cat.pwn">⚡ Pwn</option>
+            <option value="network" data-i18n="admin.ctf.cat.network">📡 Ağ</option><option value="osint" data-i18n="admin.ctf.cat.osint">👁 OSINT</option>
+            <option value="misc" data-i18n="admin.ctf.cat.misc">🎲 Diğer</option>
+          </select>
+        </div>
+        <div class="field" style="flex:1;">
+          <label data-i18n="admin.ctf.labelDifficultyReq">Zorluk *</label>
+          <select id="ctfDiff" style="width:100%;background:var(--bg);border:1px solid var(--border-2);border-radius:var(--radius-sm);padding:9px 10px;font-size:.88rem;color:var(--text);">
+            <option value="easy" data-i18n="admin.diff.easy">Kolay</option><option value="medium" selected data-i18n="admin.diff.medium">Orta</option>
+            <option value="hard" data-i18n="admin.diff.hard">Zor</option><option value="expert" data-i18n="admin.diff.expert">Uzman</option>
+          </select>
+        </div>
+        <div class="field" style="flex:1;">
+          <label data-i18n="admin.ctf.labelPointsReq">Puan *</label>
+          <input type="number" id="ctfPoints" min="1" max="9999" value="100">
+        </div>
+        <div class="field" style="flex:1;">
+          <label data-i18n="admin.ctf.labelMaxAttempts">Deneme hakkı</label>
+          <input type="number" id="ctfMaxAttempts" min="0" value="0">
+        </div>
+      </div>
+      <div class="field">
+        <label><span data-i18n="admin.ctf.labelFlagReq">Flag *</span> <span style="font-size:.75rem;color:var(--text-3);" data-i18n="admin.ctf.flagFormatHint">(herhangi bir format)</span></label>
+        <input type="text" id="ctfFlag" style="font-family:var(--mono);" placeholder="flag{...}" data-i18n-placeholder="admin.ctf.phFlag">
+      </div>
+      <div class="field">
+        <label data-i18n="admin.ctf.labelFlagFormatStudent">Öğrenciye gösterilecek flag formatı</label>
+        <input type="text" id="ctfFlagFormat" style="font-family:var(--mono);" placeholder="flag{xxxx_xxxx}" data-i18n-placeholder="admin.ctf.phFlagFormat">
+      </div>
+      <p style="font-size:.82rem;color:var(--text-3);margin:8px 0 0;line-height:1.45;" data-i18n-html="admin.ctf.hintPublishRow">
+        <strong>Yayında / yayından kaldırma</strong> için görev listesindeki satırın üstündeki kutuyu kullanın. Yeni görevler varsayılan olarak yayında eklenir.
+      </p>
+      <div class="field">
+        <label><span data-i18n="admin.ctf.labelFileOptional">Dosya eki</span> <span style="font-size:.75rem;color:var(--text-3);" data-i18n="admin.ctf.fileSizeHint">(opsiyonel — maks. 50 MB)</span></label>
+        <div id="fileDropZone"
+          ondragover="event.preventDefault();this.classList.add('drag-over')"
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="handleFileDrop(event)"
+          onclick="document.getElementById('ctfFile').click()"
+          style="border:2px dashed var(--border-2);border-radius:var(--radius-sm);padding:18px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;font-size:.84rem;color:var(--text-3);">
+          <div style="font-size:1.4rem;margin-bottom:6px;">📎</div>
+          <span id="fileDropLabel" data-i18n="admin.ctf.fileDropAdd">Dosya seç veya buraya sürükle</span>
+        </div>
+        <input type="file" id="ctfFile" style="display:none;" onchange="handleFileSelect(this)">
+      </div>
+      <div id="addCtfErr" class="badge badge-red" style="display:none;padding:8px;border-radius:8px;font-size:.82rem;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addCtfModal')" data-i18n="common.cancel">İptal</button>
+      <button class="btn btn-primary" id="addCtfBtn" onclick="submitAddCtf()" data-i18n="admin.ctf.btnAddTask">Görevi ekle</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: CTF Görevi Düzenle ───────────────────────────── -->
+<div class="modal-overlay" id="editCtfModal">
+  <div class="modal" style="max-width:620px;">
+    <div class="modal-header">
+      <h3 data-i18n="admin.ctf.modalEditTitle">✏️ Görevi düzenle</h3>
+      <button class="modal-close" onclick="closeModal('editCtfModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editCtfId">
+      <div class="field"><label data-i18n="admin.ctf.labelTaskTitle">Görev başlığı *</label><input type="text" id="editCtfTitle"></div>
+      <div class="field">
+        <label data-i18n="admin.ctf.labelTaskDesc">Açıklama</label>
+        <textarea id="editCtfDesc" rows="2" data-i18n-placeholder="admin.ctf.phTaskDesc"
+          style="width:100%;background:var(--bg);border:1px solid var(--border-2);border-radius:var(--radius-sm);padding:10px;font-size:.88rem;color:var(--text);resize:none;font-family:inherit;"></textarea>
+      </div>
+      <div class="ctf-form-grid">
+        <div class="field" style="flex:1;">
+          <label data-i18n="admin.ctf.labelCategory">Kategori</label>
+          <select id="editCtfCat" style="width:100%;background:var(--bg);border:1px solid var(--border-2);border-radius:var(--radius-sm);padding:9px 10px;font-size:.88rem;color:var(--text);">
+            <option value="web" data-i18n="admin.ctf.cat.web">🌐 Web</option><option value="crypto" data-i18n="admin.ctf.cat.crypto">🔒 Kripto</option>
+            <option value="forensics" data-i18n="admin.ctf.cat.forensics">🔍 Forensik</option><option value="pwn" data-i18n="admin.ctf.cat.pwn">⚡ Pwn</option>
+            <option value="network" data-i18n="admin.ctf.cat.network">📡 Ağ</option><option value="osint" data-i18n="admin.ctf.cat.osint">👁 OSINT</option>
+            <option value="misc" data-i18n="admin.ctf.cat.misc">🎲 Diğer</option>
+          </select>
+        </div>
+        <div class="field" style="flex:1;">
+          <label data-i18n="admin.ctf.labelDifficultyReq">Zorluk *</label>
+          <select id="editCtfDiff" style="width:100%;background:var(--bg);border:1px solid var(--border-2);border-radius:var(--radius-sm);padding:9px 10px;font-size:.88rem;color:var(--text);">
+            <option value="easy" data-i18n="admin.diff.easy">Kolay</option><option value="medium" data-i18n="admin.diff.medium">Orta</option>
+            <option value="hard" data-i18n="admin.diff.hard">Zor</option><option value="expert" data-i18n="admin.diff.expert">Uzman</option>
+          </select>
+        </div>
+        <div class="field" style="flex:1;">
+          <label data-i18n="admin.ctf.labelPointsReq">Puan *</label>
+          <input type="number" id="editCtfPoints" min="1" max="9999">
+        </div>
+        <div class="field" style="flex:1;">
+          <label data-i18n="admin.ctf.labelMaxAttempts">Deneme hakkı</label>
+          <input type="number" id="editCtfMaxAttempts" min="0">
+        </div>
+      </div>
+      <div class="field">
+        <label data-i18n="admin.ctf.labelFlagReq">Flag *</label>
+        <input type="text" id="editCtfFlag" style="font-family:var(--mono);">
+      </div>
+      <div class="field">
+        <label data-i18n="admin.ctf.labelFlagFormatStudent">Öğrenciye gösterilecek flag formatı</label>
+        <input type="text" id="editCtfFlagFormat" style="font-family:var(--mono);" placeholder="flag{xxxx_xxxx}" data-i18n-placeholder="admin.ctf.phFlagFormat">
+      </div>
+      <p style="font-size:.82rem;color:var(--text-3);margin:8px 0 0;line-height:1.45;" data-i18n-html="admin.ctf.hintPublishRowEdit">
+        <strong>Yayında / yayından kaldırma</strong> için görev listesindeki satırın üstündeki kutuyu kullanın.
+      </p>
+      <div id="editCurrentFile" style="display:none;">
+        <label style="font-size:.8rem;color:var(--text-2);font-weight:600;" data-i18n="admin.ctf.labelCurrentFile">Mevcut dosya</label>
+        <div style="display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);margin-top:4px;">
+          <span>📎</span>
+          <span id="editCurrentFileName" style="flex:1;font-size:.84rem;color:var(--text);"></span>
+          <button type="button" onclick="removeEditFile()"
+            style="background:none;border:none;cursor:pointer;color:var(--red);font-size:.8rem;font-weight:700;padding:2px 6px;" data-i18n="admin.ctf.btnRemoveFile">✕ Kaldır</button>
+        </div>
+      </div>
+      <div class="field">
+        <label><span data-i18n="admin.ctf.labelNewFile">Yeni dosya</span> <span style="font-size:.75rem;color:var(--text-3);" data-i18n="admin.ctf.newFileReplaces">(mevcutu değiştirir)</span></label>
+        <div id="editFileDropZone"
+          ondragover="event.preventDefault();this.classList.add('drag-over')"
+          ondragleave="this.classList.remove('drag-over')"
+          ondrop="handleEditFileDrop(event)"
+          onclick="document.getElementById('editCtfFile').click()"
+          style="border:2px dashed var(--border-2);border-radius:var(--radius-sm);padding:14px;text-align:center;cursor:pointer;transition:border-color .2s,background .2s;font-size:.84rem;color:var(--text-3);">
+          <span id="editFileDropLabel" data-i18n="admin.ctf.fileDropEdit">📁 Dosya seç veya sürükle</span>
+        </div>
+        <input type="file" id="editCtfFile" style="display:none;" onchange="handleEditFileSelect(this)">
+      </div>
+      <div id="editCtfErr" class="badge badge-red" style="display:none;padding:8px;border-radius:8px;font-size:.82rem;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('editCtfModal')" data-i18n="common.cancel">İptal</button>
+      <button class="btn btn-primary" id="editCtfBtn" onclick="submitEditCtf()" data-i18n="common.save">Kaydet</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Modal: Sil Onay ────────────────────────────────────── -->
+<div class="modal-overlay" id="deleteCtfModal">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-header">
+      <h3 data-i18n="admin.ctf.modalDelTitle">Görevi sil</h3>
+      <button class="modal-close" onclick="closeModal('deleteCtfModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="delCtfMsg" style="font-size:.9rem;color:var(--text-2);line-height:1.5;"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('deleteCtfModal')" data-i18n="common.cancel">İptal</button>
+      <button class="btn btn-danger" id="confirmDelCtfBtn" onclick="confirmDeleteCtf()" data-i18n="common.yesDelete">Evet, sil</button>
+    </div>
+  </div>
+</div>
+
+<script src="theme-i18n.js"></script>
+<script src="admin-shared.js"></script>
+<!-- Chart.js yerel kopya (tedarik zinciri riski: CDN'den çalıştırılabilir kod çekilmiyor) -->
+<script src="chart.umd.min.js"></script>
+<script>
+  document.getElementById("sidebar").innerHTML = buildSidebar("ctf");
+  document.getElementById("topbar").innerHTML  = buildTopbar(typeof t === "function" ? t("admin.nav.ctf") : "CTF Görevleri");
+  initTopbar(typeof t === "function" ? t("admin.nav.ctf") : "CTF Görevleri");
+  if (typeof t === "function") document.title = "SeCScop — " + t("admin.nav.ctf");
+  setupModalOverlayClose();
+
+  function ctfLocale() {
+    return typeof getLang === "function" && getLang() === "en" ? "en-US" : "tr-TR";
+  }
+
+  const CAT_FALLBACK_TR = { web:"🌐 Web", crypto:"🔒 Kripto", forensics:"🔍 Forensik", pwn:"⚡ Pwn", misc:"🎲 Diğer", network:"📡 Ağ", osint:"👁 OSINT" };
+  function catDisplay(cat) {
+    const c = cat || "misc";
+    const k = "admin.ctf.cat." + c;
+    if (typeof t !== "function") return CAT_FALLBACK_TR[c] || cat;
+    const v = t(k);
+    return (typeof v === "string" && v.indexOf("admin.ctf.cat.") === 0) ? (CAT_FALLBACK_TR[c] || cat) : v;
+  }
+  const SOLVE_RANK_MEDAL = {1:"🥇",2:"🥈",3:"🥉"};
+
+  let allChallenges = [], allStats = [], allStudents = [];
+  let activeCat = "all", activeDiff = "all", activeSolve = "all";
+  let deleteCtfId = null;
+  let solverTimelineChart = null;
+
+  // ── Load ─────────────────────────────────────────────
+  async function reloadPage() {
+    [allChallenges, allStats, allStudents] = await Promise.all([
+      apiFetch("/ctf"),
+      apiFetch("/ctf/stats"),
+      apiFetch("/students"),
+    ]);
+    renderStats();
+    renderSidebar();
+    applyAndRender();
+  }
+
+  // ── Top stats cards ───────────────────────────────────
+  function renderStats() {
+    const totalSolves = allStats.reduce((s,c) => s + c.solve_count, 0);
+    const totalPts    = allStats.reduce((s,c) => s + c.points, 0);
+    const avgRate     = allStats.length
+      ? Math.round(allStats.reduce((s,c) => s + (c.solve_rate||0), 0) / allStats.length)
+      : 0;
+
+    document.getElementById("statTotal").textContent  = allStats.length;
+    document.getElementById("statSolves").textContent = totalSolves;
+    document.getElementById("statPoints").textContent = totalPts;
+    document.getElementById("statRate").textContent   = `${avgRate}%`;
+  }
+
+  // ── Right sidebar ─────────────────────────────────────
+  function renderSidebar() {
+    const totalStudents = allStudents.length;
+    const solved   = allStats.filter(c => c.solve_count > 0).length;
+    const unsolved = allStats.filter(c => c.solve_count === 0).length;
+    const avgRate  = allStats.length
+      ? Math.round(allStats.reduce((s,c) => s+(c.solve_rate||0),0) / allStats.length)
+      : 0;
+
+    document.getElementById("sideStatSolved").textContent   = solved;
+    document.getElementById("sideStatUnsolved").textContent = unsolved;
+    document.getElementById("donutPct").textContent         = `${avgRate}%`;
+
+    // Donut arc (circumference of r=35 is ~220)
+    const circ = 2 * Math.PI * 35;
+    const dash  = (avgRate / 100) * circ;
+    document.getElementById("donutArc").setAttribute("stroke-dasharray", `${dash} ${circ}`);
+
+    // Per-challenge bars sorted by solve_count desc
+    const sorted = [...allStats].sort((a,b) => b.solve_count - a.solve_count);
+    const maxSolve = sorted[0]?.solve_count || 1;
+    document.getElementById("challengeBars").innerHTML = sorted.map(c => {
+      const pct = Math.round(c.solve_count / maxSolve * 100);
+      return `<div class="bar-chart-row">
+        <div class="bar-chart-label" title="${escapeAttr(c.title)}">${escapeHtml(c.title)}</div>
+        <div class="bar-chart-track"><div class="bar-chart-fill" style="width:${pct}%;"></div></div>
+        <div class="bar-chart-count">${c.solve_count}</div>
+      </div>`;
+    }).join("");
+
+    // Top solved
+    const top3 = sorted.slice(0, 3);
+    const solveBadge = (n) => (typeof t === "function" ? t("admin.ctf.solveBadge", { n }) : `${n} çözüm`);
+    const sideEmpty = typeof t === "function" ? t("admin.ctf.sidebarEmpty") : "Veri yok.";
+    document.getElementById("topSolvedList").innerHTML = top3.length ? top3.map((c,i) => `
+      <div class="lb-row">
+        <div class="lb-rank">${SOLVE_RANK_MEDAL[i+1]||i+1}</div>
+        <div class="lb-name" style="font-size:.84rem;">${escapeHtml(c.title)}</div>
+        <span class="badge badge-green" style="font-size:.74rem;">${solveBadge(c.solve_count)}</span>
+      </div>`).join("") : `<div style="font-size:.84rem;color:var(--text-3);">${sideEmpty}</div>`;
+
+    // Least solved (only non-zero)
+    const least = [...allStats].filter(c => c.solve_count > 0).sort((a,b) => a.solve_count - b.solve_count).slice(0,3);
+    document.getElementById("leastSolvedList").innerHTML = least.length ? least.map((c,i) => `
+      <div class="lb-row">
+        <div class="lb-rank" style="color:var(--orange);">${i+1}</div>
+        <div class="lb-name" style="font-size:.84rem;">${escapeHtml(c.title)}</div>
+        <span class="badge badge-orange" style="font-size:.74rem;">${solveBadge(c.solve_count)}</span>
+      </div>`).join("") : `<div style="font-size:.84rem;color:var(--text-3);">${sideEmpty}</div>`;
+  }
+
+  async function toggleCtfPublished(id, published, inputEl) {
+    inputEl.disabled = true;
+    const c = await apiFetch(`/ctf/${id}`);
+    if (!c || c.error) {
+      inputEl.disabled = false;
+      inputEl.checked = !published;
+      toast(c?.error || (typeof t === "function" ? t("admin.ctf.errLoadTask") : "Görev yüklenemedi"), "error");
+      return;
+    }
+    const fd = new FormData();
+    fd.append("title", c.title);
+    fd.append("description", c.description || "");
+    fd.append("category", c.category || "misc");
+    fd.append("difficulty", c.difficulty);
+    fd.append("points", String(c.points));
+    fd.append("flag", c.flag);
+    fd.append("flag_format", (c.flag_format || "flag{...}").trim());
+    fd.append("max_attempts", String(Number(c.max_attempts || 0)));
+    fd.append("is_published", published ? "true" : "false");
+    const res = await fetch(`${API}/ctf/${id}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${_token}` },
+      body: fd,
+    });
+    const data = await res.json().catch(() => ({}));
+    inputEl.disabled = false;
+    if (!res.ok) {
+      toast(data.error || (typeof t === "function" ? t("admin.ctf.errUpdate") : "Güncellenemedi"), "error");
+      inputEl.checked = !published;
+      return;
+    }
+    const ix = allChallenges.findIndex((x) => x.id === id);
+    if (ix >= 0) {
+      allChallenges[ix] = {
+        ...allChallenges[ix],
+        is_published: data.is_published !== undefined ? data.is_published : published,
+      };
+    }
+    toast(published
+      ? (typeof t === "function" ? t("admin.ctf.toastPublished") : "Görev yayında — öğrenciler görebilir.")
+      : (typeof t === "function" ? t("admin.ctf.toastUnpublished") : "Görev yayından kaldırıldı."));
+    applyAndRender();
+  }
+
+  // ── Filters ───────────────────────────────────────────
+  function setCatFilter(cat) {
+    activeCat = cat;
+    document.querySelectorAll("[data-cat]").forEach((el) => el.classList.toggle("active", el.dataset.cat === cat));
+    applyAndRender();
+  }
+  function setDiffFilter(diff) {
+    activeDiff = diff;
+    document.querySelectorAll("[data-diff]").forEach((el) => el.classList.toggle("active", el.dataset.diff === diff));
+    applyAndRender();
+  }
+  function setSolveFilter(val) {
+    activeSolve = val;
+    document.querySelectorAll("[data-solve]").forEach((el) => el.classList.toggle("active", el.dataset.solve === val));
+    applyAndRender();
+  }
+
+  function applyAndRender() {
+    const q = document.getElementById("searchInput").value.toLowerCase();
+    let rows = allChallenges;
+    if (activeCat  !== "all")      rows = rows.filter(c => c.category   === activeCat);
+    if (activeDiff !== "all")      rows = rows.filter(c => c.difficulty  === activeDiff);
+    if (activeSolve === "solved")   rows = rows.filter(c => c.solve_count > 0);
+    if (activeSolve === "unsolved") rows = rows.filter(c => c.solve_count === 0);
+    if (q) rows = rows.filter(c => c.title.toLowerCase().includes(q) || (c.description||"").toLowerCase().includes(q));
+    renderTable(rows);
+  }
+
+  // ── Table ─────────────────────────────────────────────
+  function renderTable(rows) {
+    document.getElementById("ctfCount").textContent =
+      typeof t === "function" ? t("admin.ctf.taskCount", { n: rows.length }) : `${rows.length} görev`;
+    const tbody = document.getElementById("ctfBody");
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="7"><div class="empty-state"><span class="empty-icon">🚩</span><p>${typeof t === "function" ? t("admin.ctf.emptyFilter") : "Bu filtreye uygun görev bulunamadı."}</p></div></td></tr>`;
+      return;
+    }
+
+    // Merge stats into rows
+    const statsMap = {};
+    allStats.forEach(s => statsMap[s.id] = s);
+
+    const rowPub = typeof t === "function" ? t("admin.ctf.rowPublished") : "Yayında";
+    const rowPubHint = typeof t === "function" ? t("admin.ctf.rowPublishedHint") : "(öğrencilere görünür)";
+    const fileFb = typeof t === "function" ? t("admin.ctf.fileFallback") : "dosya";
+    const attUnl = typeof t === "function" ? t("admin.ctf.attemptsUnlimited") : "Sınırsız";
+    const tiEdit = typeof t === "function" ? t("admin.ctf.titleEdit") : "Düzenle";
+    const tiDel = typeof t === "function" ? t("admin.ctf.titleDelete") : "Sil";
+
+    tbody.innerHTML = rows.map(c => {
+      const stat      = statsMap[c.id] || {};
+      const catLbl    = catDisplay(c.category) || c.category;
+      const diffBg    = DIFF_BADGE[c.difficulty] || "badge-gray";
+      const diffLbl   = diffLabel(c.difficulty) || c.difficulty;
+      const solveCount = stat.solve_count || 0;
+      const solveRate  = stat.solve_rate  || 0;
+      const totalSt    = allStudents.length;
+
+      const fileTag = c.has_file
+        ? `<span style="font-size:.72rem;color:var(--blue);margin-top:2px;display:block;">📎 ${escapeHtml(c.file_name||fileFb)}</span>`
+        : "";
+
+      return `<tr class="ctf-row" onclick="openDrawer(${c.id})">
+        <td>
+          <div class="ctf-card-toggles" onclick="event.stopPropagation();">
+            <label>
+              <input type="checkbox" ${c.is_published !== false ? "checked" : ""} onchange="toggleCtfPublished(${c.id}, this.checked, this)">
+              <span><strong>${rowPub}</strong> ${rowPubHint}</span>
+            </label>
+          </div>
+          <div style="font-size:.88rem;font-weight:600;color:var(--text);">${escapeHtml(c.title)}</div>
+          ${c.description ? `<div style="font-size:.74rem;color:var(--text-3);margin-top:1px;">${escapeHtml(String(c.description).slice(0,55))}${c.description.length>55?"…":""}</div>` : ""}
+          ${fileTag}
+        </td>
+        <td style="white-space:nowrap;font-size:.82rem;">${catLbl}</td>
+        <td><span class="badge ${diffBg}">${diffLbl}</span></td>
+        <td><span style="font-family:var(--mono);font-weight:700;color:var(--red);">${c.points}</span></td>
+        <td><span style="font-family:var(--mono);font-size:.8rem;color:var(--text-2);">${Number(c.max_attempts || 0) > 0 ? c.max_attempts : attUnl}</span></td>
+        <td>
+          <div class="solve-bar">
+            <div class="progress-bar" style="width:68px;"><div class="progress-fill"
+              style="width:${solveRate}%;${c.difficulty==="easy"?"background:var(--green);":""}"></div></div>
+            <span style="font-size:.78rem;color:var(--text-2);">
+              ${solveCount}<span style="color:var(--text-3);">/${totalSt}</span>
+            </span>
+          </div>
+        </td>
+        <td class="action-cell" onclick="event.stopPropagation()">
+          <div style="display:flex;gap:5px;justify-content:flex-end;">
+            <button class="btn btn-ghost btn-sm btn-icon" title="${tiEdit.replace(/"/g, "&quot;")}" onclick="openEditCtf(${c.id})">✏️</button>
+            <button class="btn btn-danger btn-sm btn-icon" title="${tiDel.replace(/"/g, "&quot;")}" onclick="askDeleteCtf(${Number(c.id)})">🗑</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join("");
+  }
+
+  // ── Drawer ────────────────────────────────────────────
+  async function openDrawer(id) {
+    document.getElementById("drawerOverlay").classList.add("open");
+    document.getElementById("ctfDrawer").classList.add("open");
+
+    // Reset
+    ["drawerTitle","drawerCat","dSolveCount","dSolveRate","dPoints","dUnsolved",
+     "dDesc","dFirstSolve","dLastSolve"].forEach(i => document.getElementById(i).textContent = "—");
+    document.getElementById("dDescBlock").style.display = "none";
+    document.getElementById("dFileBlock").style.display = "none";
+    document.getElementById("dRateBar").style.width = "0%";
+    document.getElementById("drawerSolvers").innerHTML = `<div style="text-align:center;padding:16px;"><div class="spinner"></div></div>`;
+    document.getElementById("dSolverCountBadge").textContent = "";
+    document.getElementById("solverTimelineEmpty").style.display = "none";
+    const chartCanvas = document.getElementById("solverTimelineChart");
+    chartCanvas.style.display = "block";
+    if (solverTimelineChart) {
+      solverTimelineChart.destroy();
+      solverTimelineChart = null;
+    }
+
+    const statsMap = {};
+    allStats.forEach(s => statsMap[s.id] = s);
+    const c    = allChallenges.find(x => x.id === id);
+    const stat = statsMap[id] || {};
+
+    if (c) {
+      const diffBg  = DIFF_BADGE[c.difficulty] || "badge-gray";
+      const diffLbl = diffLabel(c.difficulty) || c.difficulty;
+      document.getElementById("drawerDiffBadge").innerHTML = `<span class="badge ${diffBg}" style="font-size:.75rem;">${diffLbl}</span>`;
+      document.getElementById("drawerTitle").textContent = c.title;
+      document.getElementById("drawerCat").textContent   = catDisplay(c.category) || c.category;
+      document.getElementById("dPoints").textContent     = c.points;
+
+      if (c.description) {
+        document.getElementById("dDesc").textContent        = c.description;
+        document.getElementById("dDescBlock").style.display = "block";
+      }
+      if (c.has_file && c.file_name) {
+        document.getElementById("dFileName").textContent = c.file_name;
+        document.getElementById("dFileLink").href        = `${API}/ctf/${id}/file`;
+        document.getElementById("dFileBlock").style.display = "block";
+      }
+
+      const solveCount = stat.solve_count || 0;
+      const solveRate  = stat.solve_rate  || 0;
+      const total      = allStudents.length;
+      document.getElementById("dSolveCount").textContent = solveCount;
+      document.getElementById("dSolveRate").textContent  = `${solveRate}%`;
+      document.getElementById("dUnsolved").textContent   = total - solveCount;
+      document.getElementById("dRateTxt").textContent    = `${solveRate}%`;
+      setTimeout(() => { document.getElementById("dRateBar").style.width = `${solveRate}%`; }, 50);
+
+      if (stat.first_solve_at) {
+        document.getElementById("dFirstSolve").textContent = formatDate(stat.first_solve_at);
+      }
+      if (stat.last_solve_at) {
+        document.getElementById("dLastSolve").textContent = formatDate(stat.last_solve_at);
+      }
+
+      // Wire drawer buttons
+      document.getElementById("drawerEditBtn").onclick   = () => { closeDrawer(); openEditCtf(id); };
+      document.getElementById("drawerDeleteBtn").onclick = () => { closeDrawer(); askDeleteCtf(id, c.title); };
+    }
+
+    // Load solvers
+    const solvers = await apiFetch(`/ctf/${id}/solvers`);
+    document.getElementById("dSolverCountBadge").textContent = solvers.length
+      ? (typeof t === "function" ? t("admin.ctf.solverCount", { n: solvers.length }) : `${solvers.length} kişi`)
+      : "";
+
+    if (!solvers.length) {
+      const noSolv = typeof t === "function" ? t("admin.ctf.drNoSolvers") : "Henüz kimse çözmedi.";
+      document.getElementById("drawerSolvers").innerHTML =
+        `<div class="empty-state" style="padding:20px 0;"><span class="empty-icon" style="font-size:1.6rem;">🔒</span><p>${noSolv}</p></div>`;
+      chartCanvas.style.display = "none";
+      document.getElementById("solverTimelineEmpty").style.display = "block";
+      return;
+    }
+
+    document.getElementById("drawerSolvers").innerHTML = solvers.map(s => `
+      <div class="solver-row">
+        <div class="solver-rank">${SOLVE_RANK_MEDAL[s.solve_rank] || s.solve_rank}</div>
+        <div class="avatar" style="width:28px;height:28px;font-size:.65rem;background:${avatarColor(s.name)};color:#fff;flex-shrink:0;">${escapeHtml(initials(s.name))}</div>
+        <div style="flex:1;min-width:0;">
+          <div class="solver-name">${escapeHtml(s.name)}</div>
+          <div style="font-size:.73rem;color:var(--text-3);">${escapeHtml(s.email)}</div>
+        </div>
+        <div class="solver-time">${formatDate(s.solved_at)}<br><span style="color:var(--text-3);">${relativeTime(s.solved_at)}</span></div>
+        <span style="font-family:var(--mono);font-size:.8rem;font-weight:700;color:var(--green);margin-left:6px;">+${s.points}</span>
+      </div>
+    `).join("");
+
+    renderSolverTimeline(solvers);
+  }
+
+  function renderSolverTimeline(solvers) {
+    const canvas = document.getElementById("solverTimelineChart");
+    const empty = document.getElementById("solverTimelineEmpty");
+    if (!Array.isArray(solvers) || !solvers.length || typeof Chart === "undefined") {
+      canvas.style.display = "none";
+      empty.style.display = "block";
+      if (solverTimelineChart) {
+        solverTimelineChart.destroy();
+        solverTimelineChart = null;
+      }
+      return;
+    }
+    const loc = ctfLocale();
+    const sorted = [...solvers].sort((a, b) => new Date(a.solved_at) - new Date(b.solved_at));
+    const labels = sorted.map((s) => new Date(s.solved_at).toLocaleString(loc, {
+      day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+    }));
+    const chartLbl = typeof t === "function" ? t("admin.ctf.chartSolveOrder") : "Çözüm sırası";
+    const points = sorted.map((s, i) => ({
+      y: i + 1,
+      user: s.name,
+      email: s.email,
+      points: s.points,
+      solved_at: s.solved_at,
+    }));
+    if (solverTimelineChart) solverTimelineChart.destroy();
+    solverTimelineChart = new Chart(canvas.getContext("2d"), {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          label: chartLbl,
+          data: points,
+          parsing: { yAxisKey: "y" },
+          borderColor: "#c73050",
+          backgroundColor: "rgba(199,48,80,.2)",
+          pointBackgroundColor: "#c73050",
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          tension: 0.25,
+          fill: false,
+        }],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          x: {
+            ticks: { color: "#94a3b8", maxTicksLimit: 6 },
+            grid: { color: "rgba(148,163,184,.2)" },
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { stepSize: 1, color: "#94a3b8", callback: (v) => `#${v}` },
+            title: { display: true, text: chartLbl },
+            grid: { color: "rgba(148,163,184,.2)" },
+          },
+        },
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              title: (items) => items?.[0]?.raw?.user || "",
+              label: (ctx) => {
+                const r = ctx.raw || {};
+                const when = new Date(r.solved_at).toLocaleString(loc);
+                return typeof t === "function"
+                  ? t("admin.ctf.tooltipSolveLine", { n: r.y, when, pts: r.points || 0 })
+                  : `#${r.y} · ${when} · +${r.points || 0} puan`;
+              },
+              afterLabel: (ctx) => (ctx.raw?.email ? ctx.raw.email : ""),
+            },
+          },
+        },
+      },
+    });
+    empty.style.display = "none";
+    canvas.style.display = "block";
+  }
+
+  function closeDrawer() {
+    document.getElementById("drawerOverlay").classList.remove("open");
+    document.getElementById("ctfDrawer").classList.remove("open");
+  }
+
+  // ── File drop helpers (Add) ───────────────────────────
+  let selectedFile = null;
+  function handleFileSelect(input) { setFileDropped(input.files[0]); }
+  function handleFileDrop(e) {
+    e.preventDefault();
+    document.getElementById("fileDropZone").classList.remove("drag-over");
+    setFileDropped(e.dataTransfer.files[0]);
+  }
+  function setFileDropped(file) {
+    if (!file) return;
+    selectedFile = file;
+    const sz = file.size > 1024*1024 ? `${(file.size/1024/1024).toFixed(1)} MB` : `${(file.size/1024).toFixed(0)} KB`;
+    document.getElementById("fileDropLabel").textContent = `✅ ${file.name} (${sz})`;
+    document.getElementById("fileDropZone").classList.add("has-file");
+  }
+  function clearFile() {
+    selectedFile = null;
+    document.getElementById("ctfFile").value = "";
+    document.getElementById("fileDropLabel").textContent =
+      typeof t === "function" ? t("admin.ctf.fileDropAdd") : "Dosya seç veya buraya sürükle";
+    document.getElementById("fileDropZone").classList.remove("has-file");
+  }
+
+  // ── Add CTF ───────────────────────────────────────────
+  function openAddCtf() {
+    ["ctfTitle","ctfDesc","ctfFlag","ctfFlagFormat"].forEach(id => document.getElementById(id).value = "");
+    document.getElementById("ctfDiff").value   = "medium";
+    document.getElementById("ctfPoints").value = "100";
+    document.getElementById("ctfMaxAttempts").value = "0";
+    document.getElementById("ctfCat").value    = "web";
+    document.getElementById("ctfFlagFormat").value = "flag{...}";
+    clearFile();
+    hideError("addCtfErr");
+    openModal("addCtfModal");
+    document.getElementById("ctfTitle").focus();
+  }
+
+  async function submitAddCtf() {
+    const title  = document.getElementById("ctfTitle").value.trim();
+    const flag   = document.getElementById("ctfFlag").value.trim();
+    const points = parseInt(document.getElementById("ctfPoints").value);
+    const btn    = document.getElementById("addCtfBtn");
+    if (!title || !flag || !points) {
+      showError("addCtfErr", typeof t === "function" ? t("admin.ctf.errTitleFlagPoints") : "Başlık, flag ve puan zorunludur.");
+      return;
+    }
+
+    const fd = new FormData();
+    fd.append("title",       title);
+    fd.append("description", document.getElementById("ctfDesc").value.trim());
+    fd.append("category",    document.getElementById("ctfCat").value);
+    fd.append("difficulty",  document.getElementById("ctfDiff").value);
+    fd.append("points",      points);
+    fd.append("max_attempts", parseInt(document.getElementById("ctfMaxAttempts").value || "0", 10) || 0);
+    fd.append("is_published", "true");
+    fd.append("flag",        flag);
+    fd.append("flag_format", document.getElementById("ctfFlagFormat").value.trim() || "flag{...}");
+    if (selectedFile) fd.append("file", selectedFile);
+
+    btn.textContent = typeof t === "function" ? t("admin.ctf.adding") : "Ekleniyor…";
+    btn.disabled = true;
+    const res  = await fetch(`${API}/ctf`, { method:"POST", headers:{Authorization:`Bearer ${_token}`}, body:fd });
+    const data = await res.json();
+    btn.textContent = typeof t === "function" ? t("admin.ctf.btnAddTask") : "Görevi Ekle";
+    btn.disabled = false;
+    if (!res.ok) {
+      showError("addCtfErr", data.error || (typeof t === "function" ? t("admin.ctf.errGeneric") : "Hata oluştu."));
+      return;
+    }
+    closeModal("addCtfModal");
+    toast(typeof t === "function" ? t("admin.ctf.toastAdded", { title }) : `"${title}" görevi eklendi.`);
+    reloadPage();
+  }
+
+  // ── File drop helpers (Edit) ──────────────────────────
+  let editSelectedFile = null, editRemoveFile = false;
+  function handleEditFileSelect(input) { setEditFile(input.files[0]); }
+  function handleEditFileDrop(e) {
+    e.preventDefault();
+    document.getElementById("editFileDropZone").classList.remove("drag-over");
+    setEditFile(e.dataTransfer.files[0]);
+  }
+  function setEditFile(file) {
+    if (!file) return;
+    editSelectedFile = file; editRemoveFile = false;
+    const sz = file.size > 1024*1024 ? `${(file.size/1024/1024).toFixed(1)} MB` : `${(file.size/1024).toFixed(0)} KB`;
+    document.getElementById("editFileDropLabel").textContent = `✅ ${file.name} (${sz})`;
+    document.getElementById("editFileDropZone").classList.add("has-file");
+  }
+  function removeEditFile() {
+    editRemoveFile = true; editSelectedFile = null;
+    document.getElementById("editCurrentFile").style.display = "none";
+    document.getElementById("editFileDropLabel").textContent =
+      typeof t === "function" ? t("admin.ctf.fileDropEdit") : "📁 Dosya seç veya sürükle";
+    document.getElementById("editFileDropZone").classList.remove("has-file");
+  }
+
+  // ── Edit CTF ──────────────────────────────────────────
+  async function openEditCtf(id) {
+    editSelectedFile = null; editRemoveFile = false;
+    document.getElementById("editCtfId").value     = id;
+    document.getElementById("editCtfTitle").value  = "";
+    document.getElementById("editCtfTitle").placeholder =
+      typeof t === "function" ? t("admin.ctf.loadingShort") : "Yükleniyor…";
+    document.getElementById("editCtfDesc").value   = "";
+    document.getElementById("editCtfFlag").value   = "";
+    document.getElementById("editCtfFlagFormat").value = "flag{...}";
+    document.getElementById("editCtfPoints").value = "";
+    document.getElementById("editCtfMaxAttempts").value = "0";
+    document.getElementById("editFileDropLabel").textContent =
+      typeof t === "function" ? t("admin.ctf.fileDropEdit") : "📁 Dosya seç veya sürükle";
+    document.getElementById("editFileDropZone").classList.remove("has-file");
+    document.getElementById("editCtfFile").value = "";
+    document.getElementById("editCurrentFile").style.display = "none";
+    hideError("editCtfErr");
+    openModal("editCtfModal");
+
+    const c = await apiFetch(`/ctf/${id}`);
+    if (!c || c.error) {
+      showError("editCtfErr", c?.error || (typeof t === "function" ? t("admin.ctf.errLoadEdit") : "Yüklenemedi."));
+      return;
+    }
+
+    document.getElementById("editCtfTitle").placeholder = "";
+    document.getElementById("editCtfTitle").value  = c.title;
+    document.getElementById("editCtfDesc").value   = c.description || "";
+    document.getElementById("editCtfCat").value    = c.category   || "misc";
+    document.getElementById("editCtfDiff").value   = c.difficulty || "medium";
+    document.getElementById("editCtfPoints").value = c.points;
+    document.getElementById("editCtfMaxAttempts").value = Number(c.max_attempts || 0);
+    document.getElementById("editCtfFlag").value   = c.flag;
+    document.getElementById("editCtfFlagFormat").value = c.flag_format || "flag{...}";
+
+    if (c.has_file && c.file_name) {
+      document.getElementById("editCurrentFileName").textContent = c.file_name;
+      document.getElementById("editCurrentFile").style.display = "block";
+    }
+    document.getElementById("editCtfTitle").focus();
+  }
+
+  async function submitEditCtf() {
+    const id     = document.getElementById("editCtfId").value;
+    const title  = document.getElementById("editCtfTitle").value.trim();
+    const flag   = document.getElementById("editCtfFlag").value.trim();
+    const points = parseInt(document.getElementById("editCtfPoints").value);
+    const btn    = document.getElementById("editCtfBtn");
+    if (!title || !flag || !points) {
+      showError("editCtfErr", typeof t === "function" ? t("admin.ctf.errTitleFlagPoints") : "Başlık, flag ve puan zorunludur.");
+      return;
+    }
+
+    const fresh = await apiFetch(`/ctf/${id}`);
+    if (!fresh || fresh.error) {
+      showError("editCtfErr", fresh?.error || (typeof t === "function" ? t("admin.ctf.errReadPublish") : "Yayın durumu okunamadı. Sayfayı yenileyin."));
+      return;
+    }
+
+    const fd = new FormData();
+    fd.append("title",       title);
+    fd.append("description", document.getElementById("editCtfDesc").value.trim());
+    fd.append("category",    document.getElementById("editCtfCat").value);
+    fd.append("difficulty",  document.getElementById("editCtfDiff").value);
+    fd.append("points",      points);
+    fd.append("max_attempts", parseInt(document.getElementById("editCtfMaxAttempts").value || "0", 10) || 0);
+    fd.append("is_published", fresh.is_published !== false ? "true" : "false");
+    fd.append("flag",        flag);
+    fd.append("flag_format", document.getElementById("editCtfFlagFormat").value.trim() || "flag{...}");
+    fd.append("remove_file", editRemoveFile ? "true" : "false");
+    if (editSelectedFile) fd.append("file", editSelectedFile);
+
+    btn.textContent = typeof t === "function" ? t("admin.ctf.saving") : "Kaydediliyor…";
+    btn.disabled = true;
+    const res  = await fetch(`${API}/ctf/${id}`, { method:"PUT", headers:{Authorization:`Bearer ${_token}`}, body:fd });
+    const data = await res.json();
+    btn.textContent = typeof t === "function" ? t("common.save") : "Kaydet";
+    btn.disabled = false;
+    if (!res.ok) {
+      showError("editCtfErr", data.error || (typeof t === "function" ? t("admin.ctf.errGeneric") : "Hata oluştu."));
+      return;
+    }
+    closeModal("editCtfModal");
+    toast(typeof t === "function" ? t("admin.ctf.toastUpdated", { title }) : `"${title}" güncellendi.`);
+    reloadPage();
+  }
+
+  // ── Delete CTF ────────────────────────────────────────
+  function askDeleteCtf(id) {
+    deleteCtfId = id;
+    const found = allChallenges.find((x) => Number(x.id) === Number(id));
+    const title = found ? found.title : "";
+    const msg = document.getElementById("delCtfMsg");
+    if (msg) {
+      msg.textContent = typeof t === "function"
+        ? t("admin.ctf.delConfirmFull", { title })
+        : `“${title}” görevini silmek istediğinizden emin misiniz? Tüm çözüm kayıtları da silinecek.`;
+    }
+    openModal("deleteCtfModal");
+  }
+  async function confirmDeleteCtf() {
+    const btn = document.getElementById("confirmDelCtfBtn");
+    const doneLbl = typeof t === "function" ? t("common.yesDelete") : "Evet, Sil";
+    btn.textContent = typeof t === "function" ? t("admin.ctf.deleting") : "Siliniyor…";
+    btn.disabled = true;
+    const res = await fetch(`${API}/ctf/${deleteCtfId}`, { method:"DELETE", headers:{Authorization:`Bearer ${_token}`} });
+    const data = await res.json().catch(() => ({}));
+    btn.textContent = doneLbl;
+    btn.disabled = false;
+    if (!res.ok) {
+      toast(data.error || (typeof t === "function" ? t("admin.ctf.errGeneric") : "Hata oluştu."), "error");
+      return;
+    }
+    closeModal("deleteCtfModal");
+    toast(typeof t === "function" ? t("admin.ctf.toastDeleted") : "Görev silindi.");
+    reloadPage();
+  }
+
+  reloadPage();
+</script>
+</body>
+</html>

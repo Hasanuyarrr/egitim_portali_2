@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — Lab Ortamı</title>
+  <link rel="stylesheet" href="admin.css">
+  <link rel="stylesheet" href="student-shell.css">
+  <style>.sidebar-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:45;}@media(max-width:900px){.sidebar-overlay.visible{display:block;}}</style>
+</head>
+<body>
+<div class="admin-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+  <main class="admin-main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button type="button" class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+        <div>
+          <div class="topbar-title" data-i18n="student.topbar.brand">Öğrenci Paneli</div>
+          <div class="topbar-page-hint" id="studentPageHint"></div>
+          <div class="topbar-sub" id="topbarSub"></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="notif-wrap" id="notifWrap">
+          <button type="button" class="btn btn-ghost btn-sm notif-btn" id="notifBtn" onclick="toggleNotifPanel()" data-i18n-title="student.page.announcements" title="Duyurular">🔔
+            <span class="notif-badge" id="notifBadge" aria-hidden="true"></span>
+          </button>
+          <div class="notif-panel" id="notifPanel">
+            <div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:.76rem;font-weight:700;color:var(--text-2);display:flex;justify-content:space-between;align-items:center;">
+              <span id="notifPanelTitle">Yeni Duyurular</span>
+              <a id="notifSeeAll" href="student-announcements.html" style="font-size:.72rem;color:var(--blue);text-decoration:none;">Tümünü gör</a>
+            </div>
+            <div id="notifList" style="padding:0;"></div>
+          </div>
+        </div>
+        <div class="topbar-avatar">
+          <div class="avatar avatar-blue" style="width:28px;height:28px;font-size:0.7rem;" id="avatarInitials">—</div>
+          <span class="topbar-avatar-name" id="avatarName">Öğrenci</span>
+        </div>
+      </div>
+    </header>
+    <div class="page">
+      <div class="card"><div class="card-header"><h3 data-i18n="student.lab.cardTitle">Lab Erişimleri</h3></div><div class="card-body"><div class="empty-state"><span class="empty-icon">🔬</span><p data-i18n="student.lab.placeholder">Lab ortamı sayfası hazır. Bir sonraki adımda gerçek lab bağlantıları ve süre takibi buraya eklenecek.</p></div></div></div>
+    </div>
+  </main>
+</div>
+<script src="theme-i18n.js"></script>
+<script src="student-shared.js"></script>
+<script>
+initStudentShell({ activePage: "lab", pageLabelKey: "student.page.lab" });
+if (typeof t === "function") document.title = "SeCScop — " + t("student.meta.titleLab");
+</script>
+</body>
+</html>

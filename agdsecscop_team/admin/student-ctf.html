@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — CTF Görevleri</title>
+  <link rel="stylesheet" href="admin.css">
+  <link rel="stylesheet" href="student-shell.css">
+  <style>
+    .sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:45; }
+    .ctf-card { border:1px solid var(--border); border-radius:12px; background:var(--bg); padding:12px; margin-bottom:10px; }
+    .ctf-head { display:flex; align-items:flex-start; gap:10px; justify-content:space-between; margin-bottom:8px; }
+    .ctf-meta { font-size:.76rem; color:var(--text-3); margin-top:3px; }
+    .ctf-desc { font-size:.84rem; color:var(--text-2); line-height:1.55; white-space:pre-wrap; margin:8px 0 10px; }
+    .ctf-actions { display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+    .ctf-flag-input { flex:1; min-width:220px; border:1px solid var(--border-2); background:var(--bg-card); border-radius:8px; padding:8px 10px; font-size:.82rem; }
+    .ctf-msg { font-size:.78rem; margin-top:6px; }
+    .ctf-msg.ok { color:var(--green); }
+    .ctf-msg.err { color:var(--red); }
+    .ctf-toolbar { display:flex; gap:8px; flex-wrap:wrap; align-items:center; margin-bottom:10px; }
+    .ctf-chip {
+      border:1px solid var(--border);
+      background:var(--bg);
+      color:var(--text-2);
+      border-radius:999px;
+      padding:5px 10px;
+      font-size:.76rem;
+      cursor:pointer;
+    }
+    .ctf-chip.active { background:var(--red); border-color:var(--red); color:#fff; }
+    .ctf-search {
+      margin-left:auto;
+      min-width:210px;
+      border:1px solid var(--border-2);
+      background:var(--bg-card);
+      border-radius:8px;
+      padding:7px 10px;
+      font-size:.8rem;
+      color:var(--text);
+    }
+    @media (max-width:900px){ .sidebar-overlay.visible{display:block;} }
+  </style>
+</head>
+<body>
+<div class="admin-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+  <main class="admin-main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button type="button" class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+        <div>
+          <div class="topbar-title" data-i18n="student.topbar.brand">Öğrenci Paneli</div>
+          <div class="topbar-page-hint" id="studentPageHint"></div>
+          <div class="topbar-sub" id="topbarSub"></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="notif-wrap" id="notifWrap">
+          <button type="button" class="btn btn-ghost btn-sm notif-btn" id="notifBtn" onclick="toggleNotifPanel()" data-i18n-title="student.page.announcements" title="Duyurular">🔔
+            <span class="notif-badge" id="notifBadge" aria-hidden="true"></span>
+          </button>
+          <div class="notif-panel" id="notifPanel">
+            <div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:.76rem;font-weight:700;color:var(--text-2);display:flex;justify-content:space-between;align-items:center;">
+              <span id="notifPanelTitle">Yeni Duyurular</span>
+              <a id="notifSeeAll" href="student-announcements.html" style="font-size:.72rem;color:var(--blue);text-decoration:none;">Tümünü gör</a>
+            </div>
+            <div id="notifList" style="padding:0;"></div>
+          </div>
+        </div>
+        <div class="topbar-avatar">
+          <div class="avatar avatar-blue" style="width:28px;height:28px;font-size:0.7rem;" id="avatarInitials">—</div>
+          <span class="topbar-avatar-name" id="avatarName">Öğrenci</span>
+        </div>
+      </div>
+    </header>
+    <div class="page">
+      <div class="grid-4">
+        <div class="stat-card"><div class="stat-icon" style="background:var(--green-light);color:var(--green);">✅</div><div class="stat-info"><div class="stat-value" id="solvedCount">—</div><div class="stat-label" data-i18n="student.ctf.statSolved">Çözülen</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:var(--red-light);color:var(--red);">🚩</div><div class="stat-info"><div class="stat-value" id="totalCount">—</div><div class="stat-label" data-i18n="student.ctf.statTotal">Toplam Görev</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:var(--blue-light);color:var(--blue);">⭐</div><div class="stat-info"><div class="stat-value" id="scoreVal">—</div><div class="stat-label" data-i18n="student.dash.statScore">Toplam Puan</div></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3 data-i18n="student.ctf.cardTitle">Görev Listesi</h3><span class="badge badge-gray" id="filteredCount">—</span></div>
+        <div class="card-body">
+          <div class="ctf-toolbar">
+            <button class="ctf-chip active" data-filter="all" onclick="setFilter('all')" data-i18n="common.all">Tümü</button>
+            <button class="ctf-chip" data-filter="unsolved" onclick="setFilter('unsolved')" data-i18n="student.ctf.filterUnsolved">Çözülmeyen</button>
+            <button class="ctf-chip" data-filter="solved" onclick="setFilter('solved')" data-i18n="student.ctf.filterSolved">Çözülen</button>
+            <div id="categoryFilters" style="display:flex;gap:8px;flex-wrap:wrap;"></div>
+            <input class="ctf-search" id="ctfSearch" data-i18n-placeholder="student.ctf.searchPh" placeholder="Görev ara..." oninput="setSearch(this.value)">
+          </div>
+          <div id="ctfList"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="theme-i18n.js"></script>
+<script src="student-shared.js"></script>
+<script>
+initStudentShell({ activePage: "ctf", pageLabelKey: "student.page.ctf" });
+if (typeof t === "function") document.title = "SeCScop — " + t("student.meta.titleCtf");
+function sT(key, vars) { return typeof t === "function" ? t(key, vars) : key; }
+const API = window.API;
+const token = window.token;
+const user = window.user;
+let ctfRows = [];
+let activeFilter = "all";
+let searchQuery = "";
+const DIFF_BADGE = { easy: "badge-green", medium: "badge-blue", hard: "badge-orange", expert: "badge-red" };
+function diffLabel(d) {
+  const k = { easy: "student.dash.diffEasy", medium: "student.dash.diffMedium", hard: "student.dash.diffHard", expert: "student.dash.diffExpert" }[d];
+  return k ? sT(k) : String(d || "-");
+}
+
+// Ortak, tırnak/backtick kaçışlı sürüm (student-shared.js).
+const esc = window.escapeHtml;
+
+function refreshStats() {
+  const solved = ctfRows.filter(x => x.solved);
+  const score = solved.reduce((s, x) => s + Number(x.points || 0), 0);
+  document.getElementById("solvedCount").textContent = solved.length;
+  document.getElementById("totalCount").textContent = ctfRows.length;
+  document.getElementById("scoreVal").textContent = score;
+}
+
+function setFilter(f) {
+  activeFilter = f;
+  document.querySelectorAll(".ctf-chip").forEach((b) => b.classList.toggle("active", b.dataset.filter === f));
+  renderList();
+}
+
+function setSearch(q) {
+  searchQuery = String(q || "").toLowerCase().trim();
+  renderList();
+}
+
+function renderCategoryFilters() {
+  const wrap = document.getElementById("categoryFilters");
+  const cats = [...new Set((ctfRows || []).map((r) => String(r.category || "").trim().toLowerCase()).filter(Boolean))].sort();
+  wrap.innerHTML = cats.map((c) => {
+    const safe = esc(c);
+    const attr = safe.replace(/'/g, "&#39;");
+    return `<button class="ctf-chip" data-filter="cat:${attr}" onclick="setFilter('cat:${attr}')">${safe}</button>`;
+  }).join("");
+}
+
+function filteredRows() {
+  let rows = [...ctfRows];
+  if (activeFilter === "solved") rows = rows.filter((r) => !!r.solved);
+  else if (activeFilter === "unsolved") rows = rows.filter((r) => !r.solved);
+  else if (activeFilter.startsWith("cat:")) {
+    const cat = activeFilter.slice(4);
+    rows = rows.filter((r) => String(r.category || "").trim().toLowerCase() === cat);
+  }
+
+  if (searchQuery) {
+    rows = rows.filter((r) =>
+      String(r.title || "").toLowerCase().includes(searchQuery) ||
+      String(r.description || "").toLowerCase().includes(searchQuery) ||
+      String(r.category || "").toLowerCase().includes(searchQuery)
+    );
+  }
+  return rows;
+}
+
+async function downloadCtfFile(id, name) {
+  const res = await fetch(`${API}/ctf/${id}/file`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!res.ok) { alert(sT("js.toast.downloadFail")); return; }
+  const blob = await res.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = name || "ctf-file";
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async function submitFlag(id) {
+  const input = document.getElementById(`flagInput_${id}`);
+  const msg = document.getElementById(`flagMsg_${id}`);
+  const val = (input.value || "").trim();
+  if (!val) { msg.className = "ctf-msg err"; msg.textContent = sT("student.ctf.flagEmpty"); return; }
+  msg.className = "ctf-msg"; msg.textContent = sT("student.ctf.flagSending");
+  const res = await fetch(`${API}/ctf/${id}/submit`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ flag: val }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    msg.className = "ctf-msg err";
+    msg.textContent = data.error || sT("student.ctf.flagWrong");
+    const row = ctfRows.find(x => Number(x.id) === Number(id));
+    if (row && typeof data.attempts_used === "number") row.attempt_count = Number(data.attempts_used);
+    if (row && typeof data.attempts_left === "number" && data.attempts_left <= 0) {
+      renderList();
+      const finalMsg = document.getElementById(`flagMsg_${id}`);
+      if (finalMsg) {
+        finalMsg.className = "ctf-msg err";
+        finalMsg.textContent = data.error || sT("student.ctf.attemptsDone");
+      }
+      return;
+    }
+    if (data.already_solved) {
+      if (row) row.solved = true;
+      renderList();
+    }
+    return;
+  }
+  msg.className = "ctf-msg ok";
+  msg.textContent = data.message || sT("student.ctf.flagOk");
+  const row = ctfRows.find(x => Number(x.id) === Number(id));
+  if (row) {
+    row.solved = true;
+    if (typeof data.attempts_used === "number") row.attempt_count = Number(data.attempts_used);
+  }
+  renderList();
+}
+
+function renderList() {
+  refreshStats();
+  const rows = filteredRows();
+  document.getElementById("filteredCount").textContent = sT("student.ctf.taskCount", { n: rows.length });
+  const list = document.getElementById("ctfList");
+  if (!rows.length) {
+    list.innerHTML = `<div style="color:var(--text-3);font-size:.84rem;">${esc(sT("student.ctf.noTasks"))}</div>`;
+    return;
+  }
+  list.innerHTML = rows.map(r => {
+    const maxA = Number(r.max_attempts || 0);
+    const attC = Number(r.attempt_count || 0);
+    const attPart = maxA > 0
+      ? sT("student.ctf.attemptsLimited", { left: Math.max(0, maxA - attC), max: maxA })
+      : sT("student.ctf.attemptsUnlimited");
+    const metaLine = sT("student.ctf.metaLine", {
+      cat: r.category || "—",
+      pts: r.points,
+      solves: r.solve_count || 0,
+      attempts: attPart,
+    });
+    const stSolved = sT("student.ctf.statusSolved");
+    const stOpen = sT("student.ctf.statusOpen");
+    const blocked = r.solved || (maxA > 0 && attC >= maxA);
+    return `
+    <div class="ctf-card">
+      <div class="ctf-head">
+        <div style="flex:1;min-width:0;">
+          <div style="font-weight:700;color:var(--text);display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+            <span>${r.solved ? "✅" : "🚩"} ${esc(r.title)}</span>
+            <span class="badge ${DIFF_BADGE[r.difficulty] || "badge-gray"}">${esc(diffLabel(r.difficulty) || r.difficulty || "-")}</span>
+          </div>
+          <div class="ctf-meta">${esc(metaLine)}</div>
+        </div>
+        <div style="font-family:var(--mono);font-weight:800;color:${r.solved ? "var(--green)" : "var(--text-2)"};">${r.solved ? esc(stSolved) : esc(stOpen)}</div>
+      </div>
+      <div class="ctf-desc">${esc(r.description || sT("student.ctf.noDesc"))}</div>
+      <div class="ctf-actions">
+        ${r.has_file ? `<button type="button" class="btn btn-ghost btn-sm" onclick="downloadCtfFile(${r.id}, '${esc(r.file_name || "ctf-file")}')">📎 ${esc(r.file_name || sT("student.ctf.downloadFile"))}</button>` : `<span style="font-size:.76rem;color:var(--text-3);">${esc(sT("student.ctf.noFile"))}</span>`}
+        <input class="ctf-flag-input" id="flagInput_${r.id}" placeholder="${esc(r.flag_format || "flag{...}")}" ${blocked ? "disabled" : ""}>
+        <button type="button" class="btn btn-primary btn-sm" onclick="submitFlag(${r.id})" ${blocked ? "disabled" : ""}>${esc(sT("student.ctf.submitFlag"))}</button>
+      </div>
+      <div id="flagMsg_${r.id}" class="ctf-msg ${blocked && !r.solved ? "err" : (r.solved ? "ok" : "")}">${r.solved ? esc(sT("student.ctf.solvedBefore")) : (blocked ? esc(sT("student.ctf.attemptsDone")) : "")}</div>
+    </div>
+  `;
+  }).join("");
+}
+
+fetch(`${API}/ctf`, { headers: { Authorization: `Bearer ${token}` } })
+  .then(r => r.json())
+  .then(rows => {
+    if (!Array.isArray(rows)) return;
+    ctfRows = rows;
+    renderCategoryFilters();
+    renderList();
+  });
+</script>
+</body>
+</html>

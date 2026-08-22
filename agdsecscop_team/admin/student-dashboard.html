@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — Öğrenci paneli</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="admin.css">
+  <link rel="stylesheet" href="student-shell.css">
+  <style>
+    /* ── Student-specific styles ────────────────────── */
+    /* Hero welcome banner */
+    .welcome-banner {
+      background: linear-gradient(135deg, var(--bg-side) 0%, #1a1430 100%);
+      border-radius: var(--radius);
+      padding: 28px 28px 28px 32px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      position: relative;
+      overflow: hidden;
+    }
+    .welcome-banner::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(ellipse 60% 80% at 90% 50%, rgba(199,48,80,0.18), transparent 70%),
+        radial-gradient(ellipse 50% 60% at 10% 20%, rgba(58,93,191,0.15), transparent 60%);
+      pointer-events: none;
+    }
+    .wb-text { position: relative; z-index: 1; }
+    .wb-greeting {
+      font-size: 0.82rem;
+      color: rgba(240,237,242,0.5);
+      font-family: var(--mono);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .wb-title {
+      font-size: 1.55rem;
+      font-weight: 800;
+      color: #f0edf2;
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+    .wb-title span { color: var(--red); }
+    .wb-sub {
+      font-size: 0.88rem;
+      color: rgba(240,237,242,0.5);
+      margin-top: 6px;
+    }
+    .wb-badge-wrap {
+      position: relative;
+      z-index: 1;
+      flex-shrink: 0;
+      text-align: center;
+    }
+    .wb-rank-badge {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: rgba(199,48,80,0.2);
+      border: 2px solid rgba(199,48,80,0.4);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    .wb-rank-num {
+      font-size: 1.6rem;
+      font-weight: 800;
+      color: #f0edf2;
+      line-height: 1;
+    }
+    .wb-rank-label {
+      font-size: 0.65rem;
+      color: rgba(240,237,242,0.5);
+      font-family: var(--mono);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    @media (max-width: 520px) {
+      .wb-badge-wrap { display: none; }
+      .welcome-banner { padding: 22px 20px; }
+    }
+
+    /* ── Module cards ────────────────────────────────── */
+    .module-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 18px 16px;
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      transition: border-color 0.2s, transform 0.2s, box-shadow 0.2s;
+      cursor: pointer;
+    }
+    .module-card:hover {
+      border-color: rgba(199,48,80,0.3);
+      transform: translateY(-2px);
+      box-shadow: var(--shadow);
+    }
+    .mc-top {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .mc-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 9px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+    .mc-title {
+      font-size: 0.88rem;
+      font-weight: 700;
+      color: var(--text);
+      line-height: 1.3;
+      flex: 1;
+    }
+    .mc-sub {
+      font-size: 0.78rem;
+      color: var(--text-3);
+      margin-top: 2px;
+    }
+    .mc-progress-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 0.76rem;
+      color: var(--text-3);
+    }
+    .mc-progress-label strong { color: var(--text-2); font-weight: 600; }
+
+    /* ── CTF challenge row ───────────────────────────── */
+    .ctf-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .ctf-item:last-child { border-bottom: none; }
+    .ctf-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.9rem;
+      flex-shrink: 0;
+    }
+    .ctf-name {
+      flex: 1;
+      font-size: 0.86rem;
+      font-weight: 500;
+      color: var(--text);
+    }
+    .ctf-diff {
+      font-size: 0.76rem;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 99px;
+    }
+    .ctf-pts {
+      font-family: var(--mono);
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--text-2);
+      min-width: 45px;
+      text-align: right;
+    }
+
+    /* ── Announcement item ───────────────────────────── */
+    .announcement {
+      display: flex;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .announcement:last-child { border-bottom: none; padding-bottom: 0; }
+    .ann-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+    .ann-title {
+      font-size: 0.87rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+    .ann-body {
+      font-size: 0.81rem;
+      color: var(--text-2);
+      line-height: 1.5;
+    }
+    .ann-time {
+      font-size: 0.74rem;
+      color: var(--text-3);
+      margin-top: 3px;
+      font-family: var(--mono);
+    }
+
+    /* ── Two col layout ──────────────────────────────── */
+    .two-col   { display: flex; gap: 20px; align-items: flex-start; }
+    .col-main  { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 22px; }
+    .col-side  { width: 290px; flex-shrink: 0; display: flex; flex-direction: column; gap: 16px; }
+    @media (max-width: 1050px) { .col-side { width: 250px; } }
+    @media (max-width: 900px)  { .two-col { flex-direction: column; } .col-side { width: 100%; } }
+
+    /* ── Sidebar overlay ─────────────────────────────── */
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 45;
+    }
+    @media (max-width: 900px) {
+      .sidebar-overlay.visible { display: block; }
+    }
+
+    /* ── Leaderboard row ─────────────────────────────── */
+    .lb-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 9px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .lb-row:last-child { border-bottom: none; }
+    .lb-rank {
+      font-family: var(--mono);
+      font-size: 0.8rem;
+      font-weight: 700;
+      color: var(--text-3);
+      width: 22px;
+      text-align: center;
+      flex-shrink: 0;
+    }
+    .lb-rank.first  { color: #d4a017; }
+    .lb-rank.second { color: #a0a8b8; }
+    .lb-rank.third  { color: #c47a4a; }
+    .lb-name { flex: 1; font-size: 0.86rem; font-weight: 500; color: var(--text); }
+    .lb-pts  { font-family: var(--mono); font-size: 0.82rem; font-weight: 700; color: var(--text-2); }
+    .lb-row.is-me { background: var(--red-light); border-radius: 6px; padding-left: 6px; padding-right: 6px; margin: 0 -6px; }
+    .lb-row.is-me .lb-name { color: var(--red); }
+    .module-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin: 0 20px 14px;
+    }
+    .module-chip {
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text-2);
+      border-radius: 999px;
+      font-size: .76rem;
+      font-weight: 700;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+    .module-chip.active {
+      background: var(--red-light);
+      color: var(--red);
+      border-color: rgba(199,48,80,.35);
+    }
+    .mini-input {
+      border: 1px solid var(--border-2);
+      background: var(--bg);
+      color: var(--text);
+      border-radius: 8px;
+      font-size: .8rem;
+      padding: 7px 10px;
+      min-width: 180px;
+    }
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--green);
+      display: inline-block;
+      box-shadow: 0 0 0 0 rgba(26,158,110,.6);
+      animation: pulse 1.8s infinite;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    @keyframes pulse {
+      0% { box-shadow: 0 0 0 0 rgba(26,158,110,.6); }
+      70% { box-shadow: 0 0 0 10px rgba(26,158,110,0); }
+      100% { box-shadow: 0 0 0 0 rgba(26,158,110,0); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="admin-layout">
+
+  <!-- ── Sidebar ─────────────────────────────────────── -->
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <!-- ── Main ───────────────────────────────────────── -->
+  <main class="admin-main">
+
+    <!-- Topbar -->
+    <header class="topbar">
+      <div class="topbar-left">
+        <button type="button" class="hamburger" id="hamburger" onclick="toggleSidebar()">
+          <span></span><span></span><span></span>
+        </button>
+        <div>
+          <div class="topbar-title" data-i18n="student.topbar.brand">Öğrenci Paneli</div>
+          <div class="topbar-page-hint" id="studentPageHint"></div>
+          <div class="topbar-sub" id="topbarSub"></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="notif-wrap" id="notifWrap">
+          <button type="button" class="btn btn-ghost btn-sm notif-btn" id="notifBtn" onclick="toggleNotifPanel()" data-i18n-title="student.page.announcements" title="Duyurular">🔔
+            <span class="notif-badge" id="notifBadge" aria-hidden="true"></span>
+          </button>
+          <div class="notif-panel" id="notifPanel">
+            <div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:.76rem;font-weight:700;color:var(--text-2);display:flex;justify-content:space-between;align-items:center;">
+              <span id="notifPanelTitle">Yeni Duyurular</span>
+              <a id="notifSeeAll" href="student-announcements.html" style="font-size:.72rem;color:var(--blue);text-decoration:none;">Tümünü gör</a>
+            </div>
+            <div id="notifList" style="padding:0;"></div>
+          </div>
+        </div>
+        <div class="topbar-avatar">
+          <div class="avatar avatar-blue" style="width:28px;height:28px;font-size:0.7rem;" id="avatarInitials">—</div>
+          <span class="topbar-avatar-name" id="avatarName">Öğrenci</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Page -->
+    <div class="page">
+
+      <!-- Welcome banner -->
+      <div class="welcome-banner">
+        <div class="wb-text">
+          <div class="wb-greeting" data-i18n="student.dash.welcomeBack">Tekrar hoş geldin</div>
+          <div class="wb-title"><span data-i18n="student.dash.hello">Merhaba,</span> <span id="studentName">Öğrenci</span><span data-i18n="student.dash.helloWave">! 👋</span></div>
+          <div class="wb-sub" data-i18n="student.dash.wbSubDefault">Bu hafta 3 lab tamamladın — devam et!</div>
+          <div class="wb-sub" id="liveStatus" style="margin-top:10px;font-size:.78rem;">
+            <span class="pulse-dot"></span><span id="lastSyncText" data-i18n="student.dash.livePreparing">Canlı veri hazırlanıyor…</span>
+          </div>
+        </div>
+        <div class="wb-badge-wrap">
+          <div class="wb-rank-badge">
+            <div class="wb-rank-num" id="rankBadgeNum">—</div>
+            <div class="wb-rank-label" data-i18n="student.dash.rankLabel">Sıralama</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mini stats -->
+      <div class="grid-4">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--blue-light);color:var(--blue);">📈</div>
+          <div class="stat-info">
+            <div class="stat-value" id="statProgress">—</div>
+            <div class="stat-label" data-i18n="student.dash.statProgress">Genel İlerleme</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--green-light);color:var(--green);">🔬</div>
+          <div class="stat-info">
+            <div class="stat-value" id="statLabs">—</div>
+            <div class="stat-label" data-i18n="student.dash.statLabs">Tamamlanan Lab</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--orange-light);color:var(--orange);">🚩</div>
+          <div class="stat-info">
+            <div class="stat-value" id="statCtf">—</div>
+            <div class="stat-label" data-i18n="student.dash.statCtf">CTF Çözümü</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--red-light);color:var(--red);">⭐</div>
+          <div class="stat-info">
+            <div class="stat-value" id="statScore">—</div>
+            <div class="stat-label" data-i18n="student.dash.statScore">Toplam Puan</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Two column -->
+      <div class="two-col">
+        <div class="col-main">
+
+          <!-- Current module -->
+          <div class="card" id="currentModuleCard">
+            <div class="card-header">
+              <h3 data-i18n="student.dash.cardCurrent">Devam Eden Modül</h3>
+              <span class="badge badge-orange" data-i18n="common.active">Aktif</span>
+            </div>
+            <div class="card-body" id="currentModuleBody">
+              <div style="text-align:center;padding:20px;color:var(--text-3);font-size:0.84rem;" data-i18n="common.loading">Yükleniyor…</div>
+            </div>
+          </div>
+
+          <!-- All modules -->
+          <div class="card">
+            <div class="card-header">
+              <h3 data-i18n="student.dash.cardAll">Tüm Modüller</h3>
+              <span class="badge badge-gray" id="modulesBadge">—</span>
+            </div>
+            <div class="card-body" style="padding:12px 0 0;">
+              <div class="module-toolbar">
+                <div style="display:flex;gap:6px;flex-wrap:wrap;">
+                  <button type="button" class="module-chip active" data-mf="all" onclick="setModuleFilter('all')" data-i18n="common.all">Tümü</button>
+                  <button type="button" class="module-chip" data-mf="progress" onclick="setModuleFilter('progress')" data-i18n="student.dash.filterProgress">Devam Eden</button>
+                  <button type="button" class="module-chip" data-mf="done" onclick="setModuleFilter('done')" data-i18n="student.dash.filterDone">Tamamlanan</button>
+                  <button type="button" class="module-chip" data-mf="locked" onclick="setModuleFilter('locked')" data-i18n="student.dash.filterLocked">Başlanmayan</button>
+                </div>
+                <input class="mini-input" id="moduleSearch" data-i18n-placeholder="student.dash.searchPh" placeholder="Modül ara..." oninput="setModuleSearch(this.value)">
+              </div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 20px 20px;" id="modulesGrid">
+                <div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-3);font-size:0.84rem;" data-i18n="common.loading">Yükleniyor…</div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Right column -->
+        <div class="col-side">
+
+          <!-- CTF challenges -->
+          <div class="card">
+            <div class="card-header">
+              <h3 data-i18n="student.dash.ctfCard">CTF Görevleri</h3>
+              <a href="student-ctf.html" class="btn btn-ghost btn-sm" data-i18n="common.all">Tümü</a>
+            </div>
+            <div class="card-body" style="padding-top:4px;" id="ctfList">
+              <div style="text-align:center;padding:16px;color:var(--text-3);font-size:0.84rem;" data-i18n="common.loading">Yükleniyor…</div>
+            </div>
+          </div>
+
+          <!-- Leaderboard -->
+          <div class="card">
+            <div class="card-header">
+              <h3 data-i18n="student.dash.leaderCard">Liderlik Tablosu</h3>
+              <span class="badge badge-gray" data-i18n="student.dash.leaderScope">Genel</span>
+            </div>
+            <div class="card-body" style="padding-top:4px;" id="leaderboardList">
+              <div style="text-align:center;padding:16px;color:var(--text-3);font-size:0.84rem;" data-i18n="common.loading">Yükleniyor…</div>
+            </div>
+          </div>
+
+          <!-- Announcements -->
+          <div class="card">
+            <div class="card-header">
+              <h3 data-i18n="student.dash.annCard">Duyurular</h3>
+              <span class="badge badge-red" id="annBadge"></span>
+            </div>
+            <div class="card-body" style="padding-top:6px;" id="announcementsList">
+                  <div style="text-align:center;padding:16px;color:var(--text-3);font-size:0.84rem;" data-i18n="common.loading">Yükleniyor…</div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div><!-- /page -->
+  </main>
+</div>
+
+<script src="theme-i18n.js"></script>
+<script src="student-shared.js"></script>
+<script>
+  initStudentShell({ activePage: "dashboard", pageLabelKey: "student.page.dashboard" });
+  if (typeof t === "function") document.title = "SeCScop — " + t("student.meta.titleDashboard");
+
+  /** TR fallbacks if theme-i18n fails to load */
+  function dashT(key, vars) {
+    if (typeof t === "function") return t(key, vars);
+    var tr = {
+      "student.dash.moduleCount": "{n}/{m} modül",
+      "student.dash.noModulesMatch": "Aramaya veya filtreye uygun modül yok.",
+      "student.dash.currentModuleSub": "Modül {order} · {done}/{total} ders tamamlandı",
+      "student.dash.progressWord": "İlerleme:",
+      "student.dash.continueFromHere": "▶ Kaldığım Yerden Devam Et",
+      "student.dash.allModulesDone": "Tüm modüller tamamlandı! 🎉",
+      "student.dash.lessonsPair": "{done}/{total} ders",
+      "student.dash.mcDone": "✓ Bitti",
+      "student.dash.mcInProgress": "Devam ediyor",
+      "student.dash.mcLocked": "Başlanmadı",
+      "student.dash.openFirstLessonHint": "Başlamak için ilk dersi aç.",
+      "student.dash.diffEasy": "Kolay",
+      "student.dash.diffMedium": "Orta",
+      "student.dash.diffHard": "Zor",
+      "student.dash.diffExpert": "Uzman",
+      "student.dash.ctfDownloadTitle": "Dosyayı indir",
+      "student.dash.ctfDownloadLink": "Dosyayı İndir",
+      "student.dash.lbYou": "Sen ({name})",
+    };
+    var s = tr[key] || key;
+    if (vars && typeof formatTpl === "function") return formatTpl(s, vars);
+    if (vars) return String(s).replace(/\{(\w+)\}/g, function (_, k) { return vars[k] != null ? String(vars[k]) : ""; });
+    return s;
+  }
+
+  const API = window.API;
+  const token = window.token;
+  const user = window.user;
+
+  if (user) {
+    document.getElementById("studentName").textContent = user.name.split(" ")[0];
+  }
+
+  const apiFetch = window.apiFetch;
+  const escapeHtmlStr = window.escapeHtmlStr;
+  const initials = window.initials;
+  const avatarColor = window.avatarColor;
+
+  // ── Load progress ──────────────────────────────────
+  const MODULE_ICONS = ["📡","🌐","⚔️","🐧","🚩","☁️"];
+  let dashboardModules = [];
+  let moduleFilter = "all";
+  let moduleSearch = "";
+  // escapeAttrStr artik student-shared.js'teki guclu escapeAttr'i kullanir.
+  const escapeAttrStr = window.escapeAttr;
+  function parseTopicsFromProgress(m) {
+    const topics = m.topics;
+    if (Array.isArray(topics)) return topics.map(x => ({ title: (x && x.title) || "", description: (x && x.description) || "" })).filter(x => x.title || x.description);
+    if (typeof topics === "string" && topics.trim()) return topics.split("\n").map(l => l.trim()).filter(Boolean).map(line => ({ title: line, description: "" }));
+    return [];
+  }
+  function videoEmbedUrl(url) {
+    try {
+      const u = new URL(url);
+      const h = u.hostname.replace(/^www\./, "");
+      if (h === "youtu.be") return `https://www.youtube.com/embed/${u.pathname.replace(/^\//, "").split("/")[0]}`;
+      if (h.includes("youtube.com")) {
+        const v = u.searchParams.get("v");
+        if (v) return `https://www.youtube.com/embed/${v}`;
+      }
+      if (h.includes("vimeo.com")) {
+        const m = u.pathname.match(/\/(?:video\/)?(\d+)/);
+        if (m) return `https://player.vimeo.com/video/${m[1]}`;
+      }
+    } catch {}
+    return null;
+  }
+  // ── Kisa omurlu medya token'i ────────────────────────
+  // <video src> Authorization basligi gonderemez. 12 saatlik oturum token'ini
+  // URL'e koymak yerine 5 dakikalik, yalnizca medya indirmede gecerli bir
+  // token alinir (POST /api/auth/media-token).
+  let mediaToken = null;
+  async function refreshMediaToken() {
+    try {
+      const res = await fetch(`${API}/auth/media-token`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      mediaToken = data && data.token ? data.token : null;
+    } catch {
+      mediaToken = null;
+    }
+    return mediaToken;
+  }
+  setInterval(refreshMediaToken, 4 * 60 * 1000);
+
+  function streamAttachmentUrl(moduleId, attId) {
+    if (!mediaToken) return "";
+    return `${API}/modules/${moduleId}/attachments/${attId}/download?token=${encodeURIComponent(mediaToken)}`;
+  }
+
+  /** Video src'lerini token hazir oldugunda doldurur. */
+  async function hydrateVideoSources(root) {
+    const vids = (root || document).querySelectorAll("video[data-mid][data-aid]");
+    if (!vids.length) return;
+    if (!mediaToken) await refreshMediaToken();
+    if (!mediaToken) return;
+    vids.forEach((v) => {
+      const url = streamAttachmentUrl(v.dataset.mid, v.dataset.aid);
+      if (url && v.getAttribute("src") !== url) v.setAttribute("src", url);
+    });
+  }
+  async function downloadModuleFile(btn) {
+    const moduleId = btn.dataset.mid;
+    const attId = btn.dataset.aid;
+    const suggested = btn.dataset.name || (typeof t === "function" ? t("admin.lessons.defaultFileLabel") : "dosya");
+    try {
+      btn.disabled = true;
+      const res = await fetch(`${API}/modules/${moduleId}/attachments/${attId}/download`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) {
+        alert(typeof t === "function" ? t("js.toast.downloadFail") : "İndirilemedi.");
+        return;
+      }
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = suggested;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+  function moduleState(m) {
+    if (m.pct >= 100) return "done";
+    if (m.pct > 0 && m.pct < 100) return "progress";
+    return "locked";
+  }
+  function setModuleFilter(f) {
+    moduleFilter = f;
+    document.querySelectorAll(".module-chip").forEach((b) => b.classList.toggle("active", b.dataset.mf === f));
+    renderModulesGrid();
+  }
+  function setModuleSearch(v) {
+    moduleSearch = String(v || "").trim().toLowerCase();
+    renderModulesGrid();
+  }
+  function filteredModules() {
+    return dashboardModules.filter((m) => {
+      const byFilter = moduleFilter === "all" ? true : moduleState(m) === moduleFilter;
+      if (!byFilter) return false;
+      if (!moduleSearch) return true;
+      return `${m.title} ${m.description || ""}`.toLowerCase().includes(moduleSearch);
+    });
+  }
+  function updateWelcomeFromProgress(data, active) {
+    const totalDone = data.modules.reduce((s, m) => s + parseInt(m.completed_lessons, 10), 0);
+    const sub = document.querySelector(".wb-sub");
+    if (!sub) return;
+    if (typeof t === "function") {
+      sub.textContent = active
+        ? t("student.dash.wbInModule", { module: active.title, done: totalDone })
+        : (totalDone ? t("student.dash.wbDoneOnly", { done: totalDone }) : t("student.dash.wbNotStarted"));
+    } else {
+      sub.textContent = active
+        ? `Şu an "${active.title}" modülündesin. Toplam ${totalDone} ders tamamladın.`
+        : (totalDone ? `Harika! Toplam ${totalDone} dersi tamamladın.` : "Henüz başlamadın, ilk modülden başla.");
+    }
+  }
+  function markSyncedNow() {
+    const el = document.getElementById("lastSyncText");
+    if (!el) return;
+    const now = new Date();
+    const loc = typeof getLang === "function" && getLang() === "en" ? "en-US" : "tr-TR";
+    const timeStr = now.toLocaleTimeString(loc, { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+    el.textContent =
+      typeof t === "function" ? t("student.dash.lastSync", { time: timeStr }) : `Son güncelleme: ${timeStr}`;
+  }
+  function renderModuleCardBody(m, icon, done, inProg) {
+    const locked = !done && !inProg;
+    let badgeHtml, borderStyle, progressColor;
+    if (done) { badgeHtml = `<span class="badge badge-green" style="font-size:0.7rem;">${escapeHtmlStr(dashT("student.dash.mcDone"))}</span>`; progressColor = "var(--green)"; borderStyle = ""; }
+    else if (inProg) { badgeHtml = `<span class="badge badge-orange" style="font-size:0.7rem;">${escapeHtmlStr(dashT("student.dash.mcInProgress"))}</span>`; progressColor = ""; borderStyle = "border-color:rgba(199,48,80,0.25);"; }
+    else { badgeHtml = `<span class="badge badge-gray" style="font-size:0.7rem;">${escapeHtmlStr(dashT("student.dash.mcLocked"))}</span>`; progressColor = "#aaa"; borderStyle = ""; }
+
+    const sum = m.summary ? `<div style="font-size:0.8rem;color:var(--text-2);line-height:1.45;margin-top:6px;">${escapeHtmlStr(m.summary.slice(0,140))}${m.summary.length>140?"…":""}</div>` : "";
+    const topicItems = parseTopicsFromProgress(m).slice(0, 2);
+    const topicsHtml = topicItems.length
+      ? `<div style="margin-top:10px;">${topicItems.map((tp) => `<div style="margin-bottom:6px;padding:8px 10px;border-left:3px solid var(--red);background:var(--bg-2);border-radius:0 8px 8px 0;"><div style="font-weight:600;font-size:0.8rem;color:var(--text);">${escapeHtmlStr(tp.title)}</div></div>`).join("")}</div>`
+      : "";
+    const linksArr = Array.isArray(m.links) ? m.links : [];
+    const topLink = linksArr[0];
+    const linkHtml = topLink ? `<div style="margin-top:8px;"><a href="${escapeAttrStr(topLink.url)}" target="_blank" rel="noopener" style="font-size:.76rem;color:var(--blue);text-decoration:none;">🔗 ${escapeHtmlStr(topLink.title || topLink.url)}</a></div>` : "";
+    const files = m.files || [];
+    const videoFile = files.find(f => (f.kind || "document") === "video");
+    const videoHtml = videoFile ? `<div style="margin-top:8px;"><video controls preload="metadata" playsinline style="width:100%;max-height:180px;border-radius:10px;background:#000;" data-mid="${Number(m.module_id)}" data-aid="${Number(videoFile.id)}"></video></div>` : "";
+
+    return `<div class="module-card" style="${borderStyle}">
+      <div class="mc-top"><div class="mc-icon" style="background:var(--blue-light);color:var(--blue);">${icon}</div>${badgeHtml}</div>
+      <div><div class="mc-title">${escapeHtmlStr(m.title)}</div><div class="mc-sub">${escapeHtmlStr(m.description || "")}</div>${sum}${topicsHtml}${linkHtml}${videoHtml}</div>
+      <div class="mc-progress-label"><span>${m.pct}%</span><span>${escapeHtmlStr(dashT("student.dash.lessonsPair", { done: m.completed_lessons, total: m.total_lessons }))}</span></div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${m.pct}%;${progressColor ? `background:${progressColor};` : ""}"></div></div>
+      ${locked ? `<div style="font-size:.74rem;color:var(--text-3);margin-top:6px;">${escapeHtmlStr(dashT("student.dash.openFirstLessonHint"))}</div>` : ""}
+    </div>`;
+  }
+  function renderModulesGrid() {
+    const grid = document.getElementById("modulesGrid");
+    const badge = document.getElementById("modulesBadge");
+    const list = filteredModules();
+    badge.textContent = dashT("student.dash.moduleCount", { n: list.length, m: dashboardModules.length });
+    if (!list.length) {
+      grid.innerHTML = `<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--text-3);font-size:.84rem;">${escapeHtmlStr(dashT("student.dash.noModulesMatch"))}</div>`;
+      return;
+    }
+    grid.innerHTML = list.map((m, i) => {
+      const icon = MODULE_ICONS[(m.order_num - 1 + i) % MODULE_ICONS.length];
+      const done = m.pct >= 100;
+      const inProg = m.pct > 0 && m.pct < 100;
+      return renderModuleCardBody(m, icon, done, inProg);
+    }).join("");
+    hydrateVideoSources(grid);
+  }
+
+  /** CTF eki: token URL'e gomulmez, yetkili istekle blob olarak indirilir. */
+  document.addEventListener("click", async (e) => {
+    const btn = e.target.closest ? e.target.closest(".ctf-file-btn") : null;
+    if (!btn) return;
+    const id = Number(btn.dataset.ctfId);
+    if (!id) return;
+    btn.disabled = true;
+    try {
+      const res = await fetch(`${API}/ctf/${id}/file`, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) {
+        alert(typeof t === "function" ? t("js.toast.downloadFail") : "Dosya indirilemedi.");
+        return;
+      }
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = btn.dataset.ctfFile || "ctf-file";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  async function loadProgress() {
+    const data = await apiFetch("/progress");
+    if (!data || data.error) return;
+    document.getElementById("statProgress").textContent = `${data.overall_pct}%`;
+    const total = data.modules.reduce((s,m) => s + parseInt(m.completed_lessons, 10), 0);
+    document.getElementById("statLabs").textContent = total;
+    const active = data.modules.find(m => m.completed_lessons > 0 && m.pct < 100) || data.modules.find(m => m.pct < 100);
+    const bodyEl = document.getElementById("currentModuleBody");
+    if (active) {
+      const subLine = escapeHtmlStr(dashT("student.dash.currentModuleSub", {
+        order: active.order_num,
+        done: active.completed_lessons,
+        total: active.total_lessons,
+      }));
+      const progWord = escapeHtmlStr(dashT("student.dash.progressWord"));
+      const btnCont = escapeHtmlStr(dashT("student.dash.continueFromHere"));
+      bodyEl.innerHTML = `
+        <div style="display:flex;align-items:center;gap:14px;margin-bottom:16px;">
+          <div class="mc-icon" style="background:var(--blue-light);color:var(--blue);width:48px;height:48px;border-radius:12px;font-size:1.4rem;">${MODULE_ICONS[(active.order_num-1)%MODULE_ICONS.length]}</div>
+          <div>
+            <div style="font-size:1.05rem;font-weight:700;color:var(--text);">${escapeHtmlStr(active.title)}</div>
+            <div style="font-size:0.82rem;color:var(--text-3);margin-top:3px;">${subLine}</div>
+          </div>
+        </div>
+        <div class="progress-bar" style="height:8px;margin-bottom:8px;"><div class="progress-fill" style="width:${active.pct}%;"></div></div>
+        <div style="display:flex;justify-content:space-between;font-size:0.8rem;color:var(--text-3);"><span>${progWord} <strong style="color:var(--text);">${active.pct}%</strong></span></div>
+        <div style="margin-top:16px;"><button class="btn btn-primary" onclick="setModuleFilter('progress');window.scrollTo({top: document.getElementById('modulesGrid').offsetTop - 120, behavior: 'smooth'});">${btnCont}</button></div>`;
+    } else {
+      bodyEl.innerHTML = `<div style="padding:16px;color:var(--text-3);text-align:center;">${escapeHtmlStr(dashT("student.dash.allModulesDone"))}</div>`;
+    }
+    updateWelcomeFromProgress(data, active);
+    dashboardModules = data.modules;
+    renderModulesGrid();
+  }
+
+  // ── Load CTF ───────────────────────────────────────
+  const DIFF_STYLE = {
+    easy:   "background:var(--green-light);color:var(--green);",
+    medium: "background:var(--blue-light);color:var(--blue);",
+    hard:   "background:var(--orange-light);color:var(--orange);",
+    expert: "background:var(--red-light);color:var(--red);",
+  };
+
+  async function loadCtf() {
+    const challenges = await apiFetch("/ctf");
+    if (!challenges || challenges.error) return;
+
+    const DIFF_LABEL = {
+      easy: dashT("student.dash.diffEasy"),
+      medium: dashT("student.dash.diffMedium"),
+      hard: dashT("student.dash.diffHard"),
+      expert: dashT("student.dash.diffExpert"),
+    };
+    const ctfDlTitle = escapeAttrStr(dashT("student.dash.ctfDownloadTitle"));
+    const ctfDlLink = escapeHtmlStr(dashT("student.dash.ctfDownloadLink"));
+
+    const solved = challenges.filter(c => c.solved);
+    document.getElementById("statCtf").textContent   = solved.length;
+    document.getElementById("statScore").textContent = solved.reduce((s,c) => s + c.points, 0);
+
+    document.getElementById("ctfList").innerHTML = challenges.map(c => `
+      <div class="ctf-item" style="flex-wrap:wrap;row-gap:4px;">
+        <div class="ctf-icon" style="background:${c.solved ? "var(--green-light)" : "var(--bg-2)"};">${c.solved ? "✅" : "🔒"}</div>
+        <div class="ctf-name" style="flex:1;min-width:120px;">
+          <div>${escapeHtmlStr(c.category)} — ${escapeHtmlStr(c.title)}</div>
+          ${c.has_file ? `<button type="button" class="ctf-file-btn"
+              style="font-size:.74rem;color:var(--blue);background:none;border:none;padding:0;cursor:pointer;text-decoration:underline;display:inline-flex;align-items:center;gap:3px;margin-top:2px;"
+              data-ctf-id="${Number(c.id)}" data-ctf-file="${escapeAttrStr(c.file_name || "")}"
+              title="${c.file_name ? escapeAttrStr(c.file_name) : ctfDlTitle}">
+              📎 ${c.file_name ? escapeHtmlStr(c.file_name.slice(0,32)+(c.file_name.length>32?"…":"")) : ctfDlLink}
+            </button>` : ""}
+        </div>
+        <span class="ctf-diff" style="${DIFF_STYLE[c.difficulty] || ""}">${escapeHtmlStr(DIFF_LABEL[c.difficulty] || c.difficulty)}</span>
+        <span class="ctf-pts" style="${c.solved ? "" : "color:var(--text-3);"}">${c.solved ? "+" : ""}${c.points}</span>
+      </div>
+    `).join("");
+  }
+
+  // ── Load leaderboard ───────────────────────────────
+  const RANK_CLASS = {1:"first",2:"second",3:"third"};
+  const RANK_MEDAL = {1:"🥇",2:"🥈",3:"🥉"};
+
+  async function loadLeaderboard() {
+    const lb = await apiFetch("/leaderboard");
+    if (!lb || lb.error) return;
+
+    document.getElementById("leaderboardList").innerHTML = lb.map(r => `
+      <div class="lb-row${r.is_me ? " is-me" : ""}">
+        <div class="lb-rank ${RANK_CLASS[r.rank] || ""}">${RANK_MEDAL[r.rank] || r.rank}</div>
+        <div class="avatar" style="width:24px;height:24px;font-size:0.65rem;background:${avatarColor(r.name)};color:#fff;flex-shrink:0;">${initials(r.name)}</div>
+        <div class="lb-name">${r.is_me ? escapeHtmlStr(dashT("student.dash.lbYou", { name: r.name })) : escapeHtmlStr(r.name)}</div>
+        <div class="lb-pts" ${r.is_me ? 'style="color:var(--red);"' : ""}>${r.ctf_score}</div>
+      </div>
+    `).join("");
+    const me = lb.find((x) => x.is_me);
+    const rankEl = document.getElementById("rankBadgeNum");
+    if (rankEl) rankEl.textContent = me ? `#${me.rank}` : "—";
+  }
+
+  // ── Init ───────────────────────────────────────────
+  async function refreshDashboard() {
+    await Promise.all([loadProgress(), loadCtf(), loadLeaderboard(), window.loadAnnouncements()]);
+    markSyncedNow();
+  }
+
+  refreshDashboard();
+  setInterval(refreshDashboard, 60000);
+</script>
+</body>
+</html>

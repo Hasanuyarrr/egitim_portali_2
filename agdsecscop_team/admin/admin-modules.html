@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — Modules</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    .module-card {
+      background:var(--bg-card);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      padding:18px 20px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      transition:border-color .2s, box-shadow .2s;
+    }
+    .module-card:hover { border-color:var(--red); box-shadow:0 4px 18px rgba(199,48,80,.07); }
+    .module-card-header { display:flex;align-items:flex-start;gap:12px; }
+    .module-badge {
+      width:40px;height:40px;border-radius:var(--radius-sm);
+      background:var(--bg-2);
+      display:flex;align-items:center;justify-content:center;
+      font-weight:800;font-size:.8rem;font-family:var(--mono);
+      color:var(--text-2);flex-shrink:0;
+    }
+    .module-meta { font-size:.72rem;color:var(--text-3);display:flex;gap:8px;flex-wrap:wrap;margin-top:4px; }
+    .module-meta span { background:var(--bg);padding:2px 8px;border-radius:99px;border:1px solid var(--border); }
+    .module-card-toggles {
+      display:flex;flex-direction:column;gap:8px;margin-top:6px;padding:10px 12px;
+      background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);
+      font-size:.78rem;color:var(--text-2);
+    }
+    .module-card-toggles label {
+      display:flex;align-items:flex-start;gap:10px;cursor:pointer;line-height:1.4;margin:0;
+    }
+    .module-card-toggles input[type="checkbox"] { margin-top:3px;flex-shrink:0;accent-color:var(--red); }
+    .module-card-toggles .toggle-hint { font-size:.7rem;color:var(--text-3);margin-left:24px;line-height:1.35; }
+  </style>
+</head>
+<body>
+<div class="admin-layout">
+
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <main class="admin-main">
+    <header class="topbar" id="topbar"></header>
+
+    <div class="page">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div id="moduleCount" style="font-size:.9rem;color:var(--text-2);"></div>
+        <button class="btn btn-primary" onclick="openAddModule()" data-i18n="admin.modules.addBtn">+ Modül ekle</button>
+      </div>
+
+      <div class="grid-4" id="statsRow">
+        <div class="stat-card"><div class="stat-icon" style="background:var(--blue-light);color:var(--blue);">📚</div>
+          <div class="stat-info"><div class="stat-value" id="statModules"><div class="spinner"></div></div><div class="stat-label" data-i18n="admin.modules.statTotal">Toplam modül</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:var(--green-light);color:var(--green);">📝</div>
+          <div class="stat-info"><div class="stat-value" id="statLessons"><div class="spinner"></div></div><div class="stat-label" data-i18n="admin.modules.statLessons">Toplam ders</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:var(--orange-light);color:var(--orange);">🎓</div>
+          <div class="stat-info"><div class="stat-value" id="statActive"><div class="spinner"></div></div><div class="stat-label" data-i18n="admin.modules.statActive">Aktif öğrenci</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:var(--red-light);color:var(--red);">📊</div>
+          <div class="stat-info"><div class="stat-value" id="statAvgProg"><div class="spinner"></div></div><div class="stat-label" data-i18n="admin.modules.statAvgDone">Ort. tamamlanma</div></div></div>
+      </div>
+
+      <div class="grid-3" id="modulesGrid">
+        <div style="grid-column:1/-1;text-align:center;padding:40px;"><div class="spinner"></div></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- Modal: Yeni modül -->
+<div class="modal-overlay" id="addModuleModal">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <h3 data-i18n="admin.modules.modalTitle">Yeni modül ekle</h3>
+      <button class="modal-close" onclick="closeModal('addModuleModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label data-i18n="admin.modules.labelTitle">Başlık *</label><input type="text" id="modTitle" data-i18n-placeholder="admin.modules.phTitle" placeholder="Ağ temelleri"></div>
+      <div class="field"><label data-i18n="admin.modules.labelShortDesc">Kısa açıklama</label><textarea id="modDesc" rows="2" data-i18n-placeholder="admin.modules.phDesc" placeholder="Modül özeti…" style="width:100%;background:var(--bg);border:1px solid var(--border-2);border-radius:var(--radius-sm);padding:10px;font-size:.88rem;color:var(--text);resize:none;"></textarea></div>
+      <div class="field" style="display:flex;gap:10px;">
+        <div style="flex:1;"><label data-i18n="common.order">Sıra</label><input type="number" id="modOrder" min="1" value="1"></div>
+        <div style="flex:1;"><label data-i18n="admin.modules.labelTotalLessons">Toplam ders</label><input type="number" id="modLessons" min="1" value="5"></div>
+      </div>
+      <div id="addModuleErr" class="badge badge-red" style="display:none;padding:8px;border-radius:8px;font-size:.82rem;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addModuleModal')" data-i18n="common.cancel">İptal</button>
+      <button class="btn btn-primary" id="addModuleBtn" onclick="submitAddModule()" data-i18n="common.add">Ekle</button>
+    </div>
+  </div>
+</div>
+
+
+<script src="theme-i18n.js"></script>
+<script src="admin-shared.js"></script>
+<script>
+  document.getElementById("sidebar").innerHTML = buildSidebar("modules");
+  document.getElementById("topbar").innerHTML  = buildTopbar(typeof t === "function" ? t("admin.nav.modules") : "Modüller");
+  initTopbar(typeof t === "function" ? t("admin.nav.modules") : "Modüller");
+  if (typeof t === "function") document.title = "SeCScop — " + t("admin.nav.modules");
+  setupModalOverlayClose();
+
+  const icons = ["🌐","🔒","⚔️","🖥️","🔧","🚩","🏆","☁️","📡","🔍","💻","🛡️"];
+
+  function modT(key, vars) {
+    return typeof t === "function" ? t(key, vars) : "";
+  }
+
+  async function reloadPage() {
+    const [mods, students] = await Promise.all([apiFetch("/modules"), apiFetch("/students")]);
+    if (!Array.isArray(mods)) return;
+
+    const totalLessons = mods.reduce((s,m) => s + m.total_lessons, 0);
+    document.getElementById("statModules").textContent = mods.length;
+    document.getElementById("statLessons").textContent = totalLessons;
+    document.getElementById("statActive").textContent  = students.length;
+    // Ortalama tamamlanma: toplam tamamlanan ders / (öğrenci sayısı * toplam ders)
+    const totalCompletedLessons = Array.isArray(students)
+      ? students.reduce((s, st) => s + Number(st.completed_lessons || 0), 0)
+      : 0;
+    const avgProg = (students.length && totalLessons)
+      ? Math.round((totalCompletedLessons / (students.length * totalLessons)) * 100)
+      : 0;
+    document.getElementById("statAvgProg").textContent = `${avgProg}%`;
+    document.getElementById("moduleCount").textContent = modT("admin.modules.countN", { n: mods.length }) || `${mods.length} modül`;
+
+    if (!mods.length) {
+      document.getElementById("modulesGrid").innerHTML = `
+        <div style="grid-column:1/-1;"><div class="empty-state"><span class="empty-icon">📚</span><p>${modT("admin.modules.empty") || "Henüz modül yok."}</p></div></div>`;
+      return;
+    }
+
+    document.getElementById("modulesGrid").innerHTML = mods.map(m => {
+      const ic = icons[(m.order_num - 1) % icons.length];
+      const linkN = Array.isArray(m.links) ? m.links.length : (typeof m.links === "object" && m.links ? Object.keys(m.links).length : 0);
+      const attN  = m.attachment_count || 0;
+      const docN  = m.document_count != null ? m.document_count : attN;
+      const vidN  = m.video_count || 0;
+      const sumL  = m.summary ? m.summary.slice(0,80) + (m.summary.length>80?"…":"") : "";
+      const topicN = Array.isArray(m.topics) ? m.topics.length : 0;
+      return `<div class="module-card">
+        <div class="module-card-header">
+          <div class="module-badge" style="font-size:1.1rem;background:rgba(199,48,80,.07);">${ic}</div>
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:.72rem;font-family:var(--mono);color:var(--text-3);">#${String(m.order_num).padStart(2,"0")}</div>
+            <div style="font-weight:700;color:var(--text);line-height:1.25;">${escapeHtml(m.title)}</div>
+            <div class="module-meta">
+              <span>📝 ${modT("admin.modules.metaLessons", { n: m.total_lessons }) || `${m.total_lessons} ders`}</span>
+              ${topicN ? `<span>📌 ${modT("admin.modules.metaTopics", { n: topicN }) || `${topicN} konu`}</span>` : ""}
+              ${linkN ? `<span>🔗 ${modT("admin.modules.metaLinks", { n: linkN }) || `${linkN} link`}</span>` : ""}
+              ${docN ? `<span>📄 ${modT("admin.modules.metaDocs", { n: docN }) || `${docN} döküman`}</span>` : ""}
+              ${vidN ? `<span>🎬 ${modT("admin.modules.metaVideos", { n: vidN }) || `${vidN} video`}</span>` : ""}
+            </div>
+          </div>
+        </div>
+        ${sumL ? `<p style="font-size:.82rem;color:var(--text-2);margin:0;line-height:1.5;">${escapeHtml(sumL)}</p>` : (m.description ? `<p style="font-size:.82rem;color:var(--text-3);margin:0;">${escapeHtml(m.description.slice(0,100))}${m.description.length>100?"…":""}</p>` : "")}
+        <div class="module-card-toggles" onclick="event.stopPropagation();">
+          <label>
+            <input type="checkbox" ${m.is_locked ? "checked" : ""} onchange="toggleModuleLocked(${m.id}, this.checked, this)">
+            <span><strong>${modT("admin.modules.toggleLockedTitle") || "Modül kilitli"}</strong> — ${modT("admin.modules.toggleLockedDesc") || "öğrenciler bu modülü açamaz."}</span>
+          </label>
+          <label>
+            <input type="checkbox" ${(m.exam && m.exam.enabled) ? "checked" : ""} onchange="toggleModuleExamEnabled(${m.id}, this.checked, this)">
+            <span><strong>${modT("admin.modules.toggleExam") || "Sınav aktif"}</strong></span>
+          </label>
+          <div class="toggle-hint">${modT("admin.modules.toggleExamHint") || "Soru ve geçme notu için <strong>Dersler ve içerik → Sınav</strong> sekmesini kullanın."}</div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:4px;flex-wrap:wrap;align-items:center;">
+          <a class="btn btn-primary btn-sm" href="admin-module-lessons.html?id=${m.id}" style="text-decoration:none;display:inline-flex;align-items:center;">${modT("admin.modules.btnLessons") || "📖 Dersler ve içerik"}</a>
+          <a class="btn btn-ghost btn-sm" href="admin-module-lessons.html?id=${m.id}&tab=exam" style="text-decoration:none;display:inline-flex;align-items:center;">${modT("admin.modules.btnExam") || "🧪 Sınav"}</a>
+          <button type="button" class="btn btn-danger btn-sm" onclick="deleteModule(${m.id})">${modT("admin.modules.btnDelete") || "🗑 Sil"}</button>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  // escapeHtml / escapeAttr / safeUrl / escapeJsString artik admin-shared.js'te
+  // tanimli (tirnak ve backtick karakterlerini de kacisan guclu surum).
+  function openAddModule() {
+    ["modTitle","modDesc"].forEach(id => document.getElementById(id).value = "");
+    document.getElementById("modOrder").value = "1";
+    document.getElementById("modLessons").value = "5";
+    hideError("addModuleErr");
+    openModal("addModuleModal");
+    document.getElementById("modTitle").focus();
+  }
+
+  async function submitAddModule() {
+    const title = document.getElementById("modTitle").value.trim();
+    const description = document.getElementById("modDesc").value.trim();
+    const order_num = parseInt(document.getElementById("modOrder").value);
+    const total_lessons = parseInt(document.getElementById("modLessons").value);
+    const btn = document.getElementById("addModuleBtn");
+    if (!title) { showError("addModuleErr", modT("admin.modules.errTitle") || "Başlık zorunludur."); return; }
+    btn.textContent = modT("admin.modules.adding") || "Ekleniyor…"; btn.disabled = true;
+    const res = await fetch(`${API}/modules`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ title, description, order_num, total_lessons }),
+    });
+    const data = await res.json();
+    btn.textContent = modT("common.add") || "Ekle"; btn.disabled = false;
+    if (!res.ok) { showError("addModuleErr", data.error || (modT("admin.modules.errGeneric") || "Hata")); return; }
+    closeModal("addModuleModal");
+    toast(modT("admin.modules.toastAdded", { title }) || `"${title}" eklendi. İçerik sayfasına yönlendiriliyorsunuz…`);
+    window.location.href = `admin-module-lessons.html?id=${data.id}`;
+  }
+
+  async function toggleModuleLocked(id, locked, inputEl) {
+    inputEl.disabled = true;
+    const res = await fetch(`${API}/modules/${id}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ is_locked: !!locked }),
+    });
+    const data = await res.json().catch(() => ({}));
+    inputEl.disabled = false;
+    if (!res.ok) {
+      toast(data.error || (modT("admin.modules.updateFail") || "Güncellenemedi"), "error");
+      inputEl.checked = !locked;
+      return;
+    }
+    toast(locked ? (modT("admin.modules.toastLocked") || "Modül kilitlendi — öğrenciler göremez.") : (modT("admin.modules.toastUnlocked") || "Kilit kaldırıldı — modül öğrencilere açık."));
+  }
+
+  async function toggleModuleExamEnabled(id, enabled, inputEl) {
+    inputEl.disabled = true;
+    const m = await apiFetch(`/modules/${id}`);
+    if (!m || m.error) {
+      inputEl.disabled = false;
+      inputEl.checked = !enabled;
+      toast(m?.error || (modT("admin.modules.toastLoadFail") || "Modül yüklenemedi"), "error");
+      return;
+    }
+    const ex = (m.exam && typeof m.exam === "object") ? m.exam : {};
+    const exam = {
+      enabled: !!enabled,
+      pass_score: ex.pass_score != null ? Number(ex.pass_score) : 70,
+      max_attempts: ex.max_attempts != null ? Number(ex.max_attempts) : 0,
+      questions: Array.isArray(ex.questions) ? ex.questions : [],
+    };
+    const res = await fetch(`${API}/modules/${id}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ exam }),
+    });
+    const data = await res.json().catch(() => ({}));
+    inputEl.disabled = false;
+    if (!res.ok) {
+      toast(data.error || (modT("admin.modules.updateFail") || "Güncellenemedi"), "error");
+      inputEl.checked = !enabled;
+      return;
+    }
+    toast(enabled ? (modT("admin.modules.toastExamOn") || "Sınav etkinleştirildi.") : (modT("admin.modules.toastExamOff") || "Sınav devre dışı bırakıldı."));
+  }
+
+  async function deleteModule(id) {
+    if (!(confirm(modT("admin.modules.confirmDelete") || "Bu modülü silmek istediğinize emin misiniz?\n\nİçerik, ek dosyalar ve öğrenci ilerleme kayıtları bu modül için kalıcı olarak silinir."))) return;
+    const res = await fetch(`${API}/modules/${id}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${_token}` },
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast(data.error || (modT("admin.modules.deleteFail") || "Silinemedi"), "error");
+      return;
+    }
+    toast(modT("admin.modules.toastDeleted") || "Modül silindi.");
+    reloadPage();
+  }
+
+  reloadPage();
+</script>
+</body>
+</html>

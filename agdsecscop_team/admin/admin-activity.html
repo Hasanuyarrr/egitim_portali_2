@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — Öğrenci Hareketleri</title>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    .activity-page .card-body { padding: 14px 14px 16px; }
+
+    .activity-toolbar{
+      display:flex;
+      gap:12px;
+      align-items:flex-end;
+      flex-wrap:wrap;
+      margin-bottom:10px;
+    }
+    .activity-toolbar .search-box { width: min(320px, 100%); }
+    .activity-toolbar input, .activity-toolbar select {
+      width: 100%;
+      background: var(--bg);
+      border: 1px solid var(--border-2);
+      border-radius: var(--radius-sm);
+      padding: 9px 10px;
+      font-size: .88rem;
+      color: var(--text);
+      outline: none;
+    }
+    .activity-toolbar input:focus, .activity-toolbar select:focus {
+      border-color: var(--red);
+      box-shadow: 0 0 0 3px rgba(199,48,80,.12);
+    }
+
+    .activity-head{
+      display:grid;
+      grid-template-columns: 1.2fr 170px 2fr;
+      gap:10px;
+      padding: 10px 12px;
+      border: 1px solid rgba(255,255,255,0.07);
+      background: var(--bg-2);
+      border-radius: 12px;
+      margin-bottom:10px;
+    }
+    .activity-th{
+      font-size:.78rem;
+      color: var(--text-3);
+      font-weight:900;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+      display:flex;
+      align-items:center;
+      justify-content:flex-start;
+      gap:8px;
+      user-select:none;
+    }
+    .activity-th.sortable{
+      cursor:pointer;
+      color: var(--text-2);
+    }
+    .activity-caret{
+      display:inline-flex;
+      font-family: var(--mono);
+      font-weight:800;
+      color: var(--red);
+      min-width:18px;
+      justify-content:center;
+    }
+
+    .activity-list{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      margin-top:4px;
+    }
+    .activity-item{
+      display:grid;
+      grid-template-columns: 1.2fr 170px 2fr;
+      gap:10px;
+      align-items:center;
+      padding: 11px 12px;
+      border:1px solid rgba(255,255,255,0.07);
+      background:var(--bg);
+      border-radius:12px;
+    }
+    .activity-person{
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+    }
+    .activity-person-name{
+      font-size:.86rem;
+      font-weight:900;
+      color:var(--text);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .activity-person-email{
+      font-size:.72rem;
+      color:var(--text-3);
+      font-family:var(--mono);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .activity-time{
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      gap:2px;
+    }
+    .activity-time-rel{
+      font-size:.76rem;
+      color:var(--text-2);
+      font-weight:800;
+    }
+    .activity-time-abs{
+      font-size:.72rem;
+      color:var(--text-3);
+      font-family:var(--mono);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .activity-action{
+      min-width:0;
+    }
+    .activity-action-line1{
+      font-size:0.85rem;
+      font-weight:900;
+      color:var(--text);
+      line-height:1.25;
+      word-break: break-word;
+    }
+
+    .btn-inline{
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      margin-top:12px;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    @media (max-width:900px){
+      .activity-head, .activity-item{
+        grid-template-columns: 1fr 140px 1.2fr;
+      }
+    }
+    @media (max-width:640px){
+      .activity-head{
+        grid-template-columns: 1fr;
+      }
+      .activity-item{
+        grid-template-columns: 1fr;
+        align-items:flex-start;
+      }
+    }
+  </style>
+</head>
+<body>
+<div class="admin-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <main class="admin-main">
+    <header class="topbar" id="topbar"></header>
+
+    <div class="page activity-page">
+      <div class="card">
+        <div class="card-header">
+          <h3 data-i18n="admin.activity.pageTitle">Tüm öğrenci hareketleri</h3>
+        </div>
+        <div class="card-body">
+          <div class="activity-toolbar">
+            <div class="search-box" style="width:min(360px,100%);">
+              <span class="search-icon">🔎</span>
+              <input
+                type="text"
+                id="personFilter"
+                placeholder=""
+                data-i18n-placeholder="admin.activity.searchPersonPh"
+              >
+            </div>
+            <div style="flex:1;max-width:260px;">
+              <select id="typeFilter">
+                <option value="" data-i18n="admin.activity.typeAll">Hepsi</option>
+                <option value="ctf_correct" data-i18n="admin.activity.type.ctf_correct">Doğru flag</option>
+                <option value="lesson_completed" data-i18n="admin.activity.type.lesson_completed">Ders tamamlandı</option>
+                <option value="module_completed" data-i18n="admin.activity.type.module_completed">Modül tamamlandı</option>
+                <option value="exam_passed" data-i18n="admin.activity.type.exam_passed">Sınav geçti</option>
+                <option value="exam_failed" data-i18n="admin.activity.type.exam_failed">Sınav kaldı</option>
+                <option value="general_exam_passed" data-i18n="admin.activity.type.general_exam_passed">Genel sınav geçti</option>
+                <option value="general_exam_failed" data-i18n="admin.activity.type.general_exam_failed">Genel sınav kaldı</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="activity-head">
+            <div class="activity-th sortable" onclick="toggleSort('name')">
+              <span data-i18n="admin.activity.colPerson">Kişi</span>
+              <span id="caretName" class="activity-caret">▼</span>
+            </div>
+            <div class="activity-th sortable" onclick="toggleSort('time')">
+              <span data-i18n="admin.activity.colTime">Zaman</span>
+              <span id="caretTime" class="activity-caret">▼</span>
+            </div>
+            <div class="activity-th"><span data-i18n="admin.activity.colAction">Hareket</span></div>
+          </div>
+
+          <div id="activityAllList" class="activity-list" style="display:none;"></div>
+          <div id="activityAllLoading" style="text-align:center;padding:18px 0;">
+            <div class="spinner"></div>
+          </div>
+          <div id="activityAllEmpty" style="display:none;text-align:center;color:var(--text-3);padding:18px 0;" data-i18n="admin.activity.empty">Henüz bildirim yok.</div>
+
+          <div class="btn-inline">
+            <button class="btn btn-ghost" id="loadMoreBtn" onclick="loadMoreActivity()" style="display:none;">
+              <span id="loadMoreLbl" data-i18n="admin.activity.loadMore">Daha fazla yükle</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="theme-i18n.js"></script>
+<script src="admin-shared.js"></script>
+<script>
+  document.getElementById("sidebar").innerHTML = buildSidebar("activity");
+  document.getElementById("topbar").innerHTML =
+    buildTopbar(typeof t === "function" ? t("admin.activity.pageTitle") : "Tüm öğrenci hareketleri");
+  initTopbar(typeof t === "function" ? t("admin.activity.pageTitle") : "Tüm öğrenci hareketleri");
+  if (typeof t === "function") document.title = "SeCScop — " + t("admin.activity.pageTitle");
+
+  function tAct(key, vars, fallback) {
+    if (typeof t === "function") return t(key, vars);
+    return fallback != null ? fallback : key;
+  }
+
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function activityMeta(e) {
+    if (!e || e.meta == null) return {};
+    if (typeof e.meta === "object" && !Array.isArray(e.meta)) return e.meta;
+    if (typeof e.meta === "string") {
+      try {
+        return JSON.parse(e.meta);
+      } catch {
+        return {};
+      }
+    }
+    return {};
+  }
+
+  function generalExamTitle(e) {
+    const t = String(activityMeta(e).exam_title || "").trim();
+    return t || "—";
+  }
+
+  function messageFor(e) {
+    const actor = esc(e.actor_name || e.actor_email || "—");
+    const module = esc(e.module_title || "");
+    const lesson = esc(e.lesson_title || "");
+    const challenge = esc(e.challenge_title || "");
+    const score = e.exam_score != null ? Number(e.exam_score) : 0;
+    const exam = esc(generalExamTitle(e));
+
+    switch (e.event_type) {
+      case "ctf_correct":
+        return tAct("admin.activity.msg.ctfCorrect", { actor, challenge }, `${actor} doğru flag gönderdi: ${challenge}`);
+      case "lesson_completed":
+        return tAct("admin.activity.msg.lessonCompleted", { actor, module, lesson }, `${actor} ders tamamladı: ${module} / ${lesson}`);
+      case "module_completed":
+        return tAct("admin.activity.msg.moduleCompleted", { actor, module }, `${actor} modülü tamamladı: ${module}`);
+      case "exam_passed":
+        return tAct("admin.activity.msg.examPassed", { actor, module, score }, `${actor} sınav geçti: ${module} (${score} puan)`);
+      case "exam_failed":
+        return tAct("admin.activity.msg.examFailed", { actor, module, score }, `${actor} sınav kaldı: ${module} (${score} puan)`);
+      case "general_exam_passed":
+        return tAct(
+          "admin.activity.msg.generalExamPassed",
+          { actor, exam, score },
+          `${actor} genel sınavı geçti: ${exam} (${score} puan)`
+        );
+      case "general_exam_failed":
+        return tAct(
+          "admin.activity.msg.generalExamFailed",
+          { actor, exam, score },
+          `${actor} genel sınavda kaldı: ${exam} (${score} puan)`
+        );
+      default:
+        return `${actor} etkinlik: ${esc(e.event_type || "—")}`;
+    }
+  }
+
+  function iconFor(type) {
+    switch (type) {
+      case "ctf_correct":
+      case "lesson_completed":
+      case "module_completed":
+      case "exam_passed":
+      case "general_exam_passed":
+        return "✅";
+      case "exam_failed":
+      case "general_exam_failed":
+        return "❌";
+      default:
+        return "🔔";
+    }
+  }
+
+  function lbAbsTime(iso) {
+    const locale = typeof getLang === "function" && getLang() === "en" ? "en-US" : "tr-TR";
+    return new Date(iso).toLocaleString(locale, {
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  }
+
+  function actionFor(e) {
+    const module = esc(e.module_title || "");
+    const lesson = esc(e.lesson_title || "");
+    const challenge = esc(e.challenge_title || "");
+    const score = e.exam_score != null ? Number(e.exam_score) : 0;
+    const exam = esc(generalExamTitle(e));
+
+    switch (e.event_type) {
+      case "ctf_correct":
+        return tAct("admin.activity.action.ctfCorrect", { challenge }, `doğru flag gönderdi: ${challenge}`);
+      case "lesson_completed":
+        return tAct("admin.activity.action.lessonCompleted", { module, lesson }, `ders tamamladı: ${module} / ${lesson}`);
+      case "module_completed":
+        return tAct("admin.activity.action.moduleCompleted", { module }, `modülü tamamladı: ${module}`);
+      case "exam_passed":
+        return tAct("admin.activity.action.examPassed", { module, score }, `sınav geçti: ${module} (${score} puan)`);
+      case "exam_failed":
+        return tAct("admin.activity.action.examFailed", { module, score }, `sınav kaldı: ${module} (${score} puan)`);
+      case "general_exam_passed":
+        return tAct(
+          "admin.activity.action.generalExamPassed",
+          { exam, score },
+          `genel sınav geçti: ${exam} (${score} puan)`
+        );
+      case "general_exam_failed":
+        return tAct(
+          "admin.activity.action.generalExamFailed",
+          { exam, score },
+          `genel sınav kaldı: ${exam} (${score} puan)`
+        );
+      default:
+        return `etkinlik: ${esc(e.event_type || "—")}`;
+    }
+  }
+
+  const els = {
+    list: document.getElementById("activityAllList"),
+    loadingEl: document.getElementById("activityAllLoading"),
+    emptyEl: document.getElementById("activityAllEmpty"),
+    btn: document.getElementById("loadMoreBtn"),
+    personFilter: document.getElementById("personFilter"),
+    typeFilter: document.getElementById("typeFilter"),
+    caretName: document.getElementById("caretName"),
+    caretTime: document.getElementById("caretTime"),
+  };
+
+  const state = {
+    offset: 0,
+    limit: 20,
+    q: "",
+    type: "",
+    sort: "time", // time | name
+    dir: "desc", // asc | desc
+    loading: false,
+    done: false,
+    debounceT: null,
+  };
+
+  function renderItem(e) {
+    const name = esc(e.actor_name || e.actor_email || "—");
+    const email = esc(e.actor_email || "");
+    const rel = relativeTime(e.created_at);
+    const abs = lbAbsTime(e.created_at);
+    const icon = iconFor(e.event_type);
+    const action = actionFor(e);
+    return `
+      <div class="activity-item">
+        <div class="activity-person">
+          <div class="activity-person-name">${name}</div>
+          ${email ? `<div class="activity-person-email">${email}</div>` : ""}
+        </div>
+        <div class="activity-time">
+          <div class="activity-time-rel">${rel}</div>
+          <div class="activity-time-abs">${abs}</div>
+        </div>
+        <div class="activity-action">
+          <div class="activity-action-line1">${icon} ${action}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  function updateCarets() {
+    if (!els.caretName || !els.caretTime) return;
+
+    const caret = (dir) => (dir === "asc" ? "▲" : "▼");
+
+    if (state.sort === "name") {
+      els.caretName.textContent = caret(state.dir);
+      els.caretTime.textContent = "—";
+    } else {
+      els.caretTime.textContent = caret(state.dir);
+      els.caretName.textContent = "—";
+    }
+  }
+
+  function resetAndLoad() {
+    if (!els.list) return;
+    state.offset = 0;
+    state.done = false;
+    els.list.style.display = "none";
+    els.list.innerHTML = "";
+    els.emptyEl.style.display = "none";
+    if (els.btn) els.btn.style.display = "inline-flex";
+    loadMoreActivity();
+  }
+
+  async function loadMoreActivity() {
+    if (state.loading || state.done) return;
+    if (!els.list) return;
+
+    state.loading = true;
+    els.list.style.display = "flex";
+    els.loadingEl.style.display = "block";
+    els.emptyEl.style.display = "none";
+    if (els.btn) els.btn.disabled = true;
+
+    try {
+      const params = new URLSearchParams();
+      params.set("limit", String(state.limit));
+      params.set("offset", String(state.offset));
+      params.set("sort", state.sort === "name" ? "name" : "time");
+      params.set("dir", state.dir);
+      if (state.q) params.set("q", state.q);
+      if (state.type) params.set("type", state.type);
+
+      const data = await apiFetch(`/admin/activity/events?${params.toString()}`);
+      const events = Array.isArray(data) ? data : [];
+
+      if (!events.length && state.offset === 0) {
+        els.list.style.display = "none";
+        els.emptyEl.style.display = "block";
+        if (els.btn) els.btn.style.display = "none";
+        state.done = true;
+        return;
+      }
+
+      const html = events.map(renderItem).join("");
+      els.list.innerHTML = els.list.innerHTML + html;
+      state.offset += events.length;
+
+      if (events.length < state.limit) {
+        state.done = true;
+        if (els.btn) els.btn.style.display = "none";
+      } else {
+        if (els.btn) els.btn.style.display = "inline-flex";
+      }
+    } catch (_) {
+      // fail silently
+    } finally {
+      els.loadingEl.style.display = "none";
+      if (els.btn) els.btn.disabled = false;
+      state.loading = false;
+    }
+  }
+
+  // inline onclick from HTML
+  window.toggleSort = function toggleSort(which) {
+    if (which !== "name" && which !== "time") return;
+
+    if (state.sort === which) {
+      state.dir = state.dir === "asc" ? "desc" : "asc";
+    } else {
+      state.sort = which;
+      state.dir = which === "time" ? "desc" : "asc";
+    }
+    updateCarets();
+    resetAndLoad();
+  };
+
+  if (els.personFilter) {
+    els.personFilter.addEventListener("input", () => {
+      const v = (els.personFilter.value || "").trim();
+      state.q = v;
+      if (state.debounceT) clearTimeout(state.debounceT);
+      state.debounceT = setTimeout(() => resetAndLoad(), 400);
+    });
+  }
+
+  if (els.typeFilter) {
+    els.typeFilter.addEventListener("change", () => {
+      state.type = els.typeFilter.value || "";
+      resetAndLoad();
+    });
+  }
+
+  // initial load
+  updateCarets();
+  state.q = (els.personFilter?.value || "").trim();
+  state.type = els.typeFilter?.value || "";
+  els.list.innerHTML = "";
+  els.loadingEl.style.display = "block";
+  els.emptyEl.style.display = "none";
+  if (els.btn) els.btn.style.display = "inline-flex";
+  loadMoreActivity();
+</script>
+</body>
+</html>
+

@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — Modül içeriği</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    .lesson-wrap { max-width: 920px; margin: 0 auto; }
+    .lesson-back {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 0.86rem; font-weight: 600; color: var(--text-2);
+      text-decoration: none; margin-bottom: 16px;
+    }
+    .lesson-back:hover { color: var(--red); }
+    .lesson-hero {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 18px 20px;
+      margin-bottom: 18px;
+      display: flex; flex-wrap: wrap; align-items: flex-start; gap: 14px;
+      justify-content: space-between;
+    }
+    .lesson-hero h1 { margin: 0; font-size: 1.25rem; font-weight: 800; color: var(--text); line-height: 1.25; }
+    .lesson-hero .sub { font-size: 0.8rem; color: var(--text-3); margin-top: 6px; font-family: var(--mono); }
+    .lesson-switcher label { font-size: 0.72rem; color: var(--text-3); display: block; margin-bottom: 4px; }
+    .lesson-switcher select {
+      min-width: 220px; padding: 8px 12px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border-2); background: var(--bg); color: var(--text); font-size: 0.86rem;
+    }
+    .lesson-panel-intro {
+      font-size: 0.82rem; color: var(--text-3); line-height: 1.55; margin: 0 0 18px;
+      padding: 12px 14px; background: rgba(58, 93, 191, 0.06);
+      border: 1px solid rgba(58, 93, 191, 0.12); border-radius: 12px;
+    }
+    .lesson-card {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 18px 20px; margin-bottom: 16px;
+    }
+    .lesson-card h4 {
+      font-size: 0.72rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.06em;
+      color: var(--text-3); margin: 0 0 12px;
+    }
+    .topic-row {
+      border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px; margin-bottom: 12px;
+      background: var(--bg);
+    }
+    .topic-row .topic-title {
+      width: 100%; margin-bottom: 8px; font-size: 0.88rem; padding: 10px 12px;
+      border-radius: var(--radius-sm); border: 1px solid var(--border-2); background: var(--bg-2); color: var(--text);
+      box-sizing: border-box;
+    }
+    .topic-row .topic-desc {
+      width: 100%; font-size: 0.84rem; padding: 10px 12px; border-radius: var(--radius-sm);
+      border: 1px solid var(--border-2); background: var(--bg-2); color: var(--text);
+      resize: vertical; min-height: 56px; box-sizing: border-box;
+    }
+    .link-row { display: flex; gap: 10px; margin-bottom: 10px; align-items: center; flex-wrap: wrap; }
+    .file-row {
+      display: flex; align-items: center; gap: 10px; padding: 10px 0;
+      border-bottom: 1px solid var(--border); font-size: 0.86rem;
+    }
+    .file-row:last-child { border-bottom: none; }
+    .hint { font-size: 0.75rem; color: var(--text-3); margin-top: 8px; line-height: 1.45; }
+    .lesson-save-bar {
+      position: sticky; bottom: 0; z-index: 20;
+      margin-top: 24px; padding: 16px 0 8px;
+      background: linear-gradient(180deg, transparent 0%, var(--bg) 18%);
+    }
+    .lesson-save-inner {
+      display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+      padding: 16px 18px; border: 1px solid var(--border); border-radius: 14px;
+      background: var(--bg-card); box-shadow: 0 -4px 24px rgba(0,0,0,.06);
+    }
+    .lesson-manager {
+      display: grid;
+      grid-template-columns: 250px 1fr;
+      gap: 14px;
+    }
+    .lesson-list {
+      border: 1px solid var(--border);
+      background: var(--bg);
+      border-radius: 12px;
+      padding: 10px;
+      max-height: 540px;
+      overflow: auto;
+    }
+    .lesson-list-item {
+      width: 100%;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg-card);
+      color: var(--text);
+      padding: 9px 10px;
+      text-align: left;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .lesson-list-item.active {
+      border-color: rgba(199, 48, 80, 0.35);
+      background: rgba(199, 48, 80, 0.08);
+    }
+    .lesson-editor {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      background: var(--bg);
+      padding: 14px;
+    }
+    .lesson-subtabs { display:flex; gap:8px; margin: 10px 0 14px; flex-wrap: wrap; }
+    .lesson-subtab {
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-2);
+      padding: 8px 12px;
+      font-size: .8rem;
+      border-radius: 999px;
+      font-weight: 700;
+    }
+    .lesson-subtab.active {
+      background: rgba(199, 48, 80, 0.12);
+      border-color: rgba(199, 48, 80, 0.35);
+      color: var(--red);
+    }
+    .lesson-subpanel { display: none; }
+    .lesson-subpanel.active { display: block; }
+    .lesson-file-row { display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+    .editor-tabs { display:flex; gap:8px; margin-bottom:14px; flex-wrap:wrap; }
+    .editor-tab {
+      border:1px solid var(--border); background:var(--bg-card); color:var(--text-2);
+      padding:8px 12px; font-size:.8rem; border-radius:999px; font-weight:700;
+    }
+    .editor-tab.active { background:rgba(199,48,80,.12); border-color:rgba(199,48,80,.35); color:var(--red); }
+    .editor-panel { display:none; }
+    .editor-panel.active { display:block; }
+    .exam-q {
+      border:1px solid var(--border);
+      border-radius:10px;
+      padding:10px;
+      background:var(--bg);
+      margin-bottom:10px;
+    }
+    .exam-opt-row { display:flex; gap:8px; margin-bottom:6px; align-items:center; }
+    @media (max-width: 860px) {
+      .lesson-manager { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="admin-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <main class="admin-main">
+    <header class="topbar" id="topbar"></header>
+
+    <div class="page">
+      <div id="editorView" style="display:none;">
+        <div class="lesson-wrap">
+          <a class="lesson-back" href="admin-modules.html" data-i18n="admin.lessons.back">← Modüllere dön</a>
+
+          <div class="lesson-hero">
+            <div style="flex:1;min-width:200px;">
+              <div class="sub" id="heroOrder">—</div>
+              <h1 id="heroTitle">—</h1>
+              <div class="sub" id="heroMeta" style="margin-top:10px;">—</div>
+            </div>
+            <div class="lesson-switcher">
+              <label for="moduleSwitcher" data-i18n="admin.lessons.quickSwitch">Hızlı geçiş</label>
+              <select id="moduleSwitcher"><option value="">—</option></select>
+            </div>
+          </div>
+
+          <input type="hidden" id="editId">
+          <div class="editor-tabs">
+            <button type="button" class="editor-tab active" data-editor-tab="content" onclick="switchEditorTab('content')" data-i18n="admin.lessons.tabContent">📝 İçerik</button>
+            <button type="button" class="editor-tab" data-editor-tab="exam" onclick="switchEditorTab('exam')" data-i18n="admin.lessons.tabExam">🧪 Sınav</button>
+          </div>
+
+          <div class="editor-panel active" data-editor-panel="content">
+          <p class="lesson-panel-intro" data-i18n="admin.lessons.introMain">Bu modül içinde ders oluşturun. Her ders için içerik, dosya linkleri ve ayarlar yönetilebilir.</p>
+            <div class="lesson-card">
+              <h4 data-i18n="admin.lessons.headingLessons">Dersler</h4>
+              <div class="lesson-manager">
+                <div class="lesson-list" id="lessonList"></div>
+                <div class="lesson-editor">
+                  <div class="field">
+                    <label data-i18n="admin.lessons.labelLessonName">Ders adı</label>
+                    <input type="text" id="lessonTitleInput" data-i18n-placeholder="admin.lessons.phLessonName" placeholder="Örn: İşletim sistemi komutları" oninput="updateActiveLessonTitle(this.value)">
+                  </div>
+                  <div class="lesson-subtabs">
+                    <button type="button" class="lesson-subtab active" data-lesson-tab="content" onclick="switchLessonEditorTab('content')" data-i18n="admin.lessons.subContent">📝 İçerik</button>
+                    <button type="button" class="lesson-subtab" data-lesson-tab="files" onclick="switchLessonEditorTab('files')" data-i18n="admin.lessons.subFiles">📎 Dosyalar</button>
+                    <button type="button" class="lesson-subtab" data-lesson-tab="settings" onclick="switchLessonEditorTab('settings')" data-i18n="admin.lessons.subSettings">⚙️ Ayarlar</button>
+                  </div>
+                  <div class="lesson-subpanel active" data-lesson-panel="content">
+                    <div class="field">
+                      <label data-i18n="admin.lessons.labelBody">Ders içeriği / notlar</label>
+                      <textarea id="lessonContentInput" rows="10" data-i18n-placeholder="admin.lessons.phBody" placeholder="Bu derste öğretilecek komutlar ve notlar..." oninput="updateActiveLessonContent(this.value)"
+                        style="width:100%;box-sizing:border-box;"></textarea>
+                    </div>
+                    <div class="field" style="margin-top:10px;">
+                      <label data-i18n="admin.lessons.labelInstructorNotes">Eğitmen notu (opsiyonel)</label>
+                      <textarea id="lessonNotesInput" rows="4" data-i18n-placeholder="admin.lessons.phInstructorNotes" placeholder="Sadece yönetim için not..." oninput="updateActiveLessonNotes(this.value)"
+                        style="width:100%;box-sizing:border-box;"></textarea>
+                    </div>
+                  </div>
+                  <div class="lesson-subpanel" data-lesson-panel="files">
+                    <div id="lessonFilesRows"></div>
+                    <button type="button" class="btn btn-ghost btn-sm" onclick="addLessonFileRow()" data-i18n="admin.lessons.addLink">+ Dosya/link ekle</button>
+                    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:10px;">
+                      <label class="btn btn-ghost btn-sm" style="cursor:pointer;margin:0;">
+                        <span data-i18n="admin.lessons.pickFromDevice">Cihazdan dosya seç</span>
+                        <input type="file" id="lessonAttachInput" style="display:none;" onchange="onLessonAttachPick(this)">
+                      </label>
+                      <span id="lessonAttachLabel" style="font-size:.82rem;color:var(--text-3);" data-i18n="admin.lessons.notSelected">Seçilmedi</span>
+                      <button type="button" class="btn btn-primary btn-sm" onclick="uploadLessonAttachmentAsLink('document')" data-i18n="admin.lessons.uploadDoc">Dosya olarak yükle</button>
+                      <button type="button" class="btn btn-ghost btn-sm" onclick="uploadLessonAttachmentAsLink('video')" data-i18n="admin.lessons.uploadVideo">Video olarak yükle</button>
+                    </div>
+                    <div class="hint" data-i18n="admin.lessons.filesHint">Seçtiğiniz dosya sunucuya yüklenir ve bu derse indirilebilir link olarak eklenir.</div>
+                  </div>
+                  <div class="lesson-subpanel" data-lesson-panel="settings">
+                    <div class="field" style="display:flex;gap:12px;flex-wrap:wrap;">
+                      <div style="flex:1;min-width:120px;">
+                        <label data-i18n="admin.lessons.labelLessonOrder">Ders sırası</label>
+                        <input type="number" min="1" id="lessonOrderInput" oninput="updateActiveLessonOrder(this.value)">
+                      </div>
+                      <div style="flex:1;min-width:120px;">
+                        <label data-i18n="admin.lessons.labelDurationMin">Süre (dk)</label>
+                        <input type="number" min="0" id="lessonDurationInput" oninput="updateActiveLessonDuration(this.value)">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap;">
+                <button type="button" class="btn btn-ghost btn-sm" onclick="addLesson()" data-i18n="admin.lessons.addLesson">+ Ders ekle</button>
+                <button type="button" class="btn btn-danger btn-sm" onclick="removeActiveLesson()" data-i18n="admin.lessons.removeLesson">Seçili dersi sil</button>
+              </div>
+            </div>
+            <div class="lesson-card">
+              <h4 data-i18n="admin.lessons.headingSummary">Modül özeti (genel)</h4>
+              <textarea id="editSummary" rows="2" data-i18n-placeholder="admin.lessons.phSummary" placeholder="Kısa özet — öğrenci kartında görünür…"
+                style="width:100%;box-sizing:border-box;background:var(--bg);border:1px solid var(--border-2);border-radius:var(--radius-sm);padding:12px;font-size:.9rem;"></textarea>
+            </div>
+            <div class="lesson-card">
+              <h4 data-i18n="admin.lessons.headingModuleSettings">Modül ayarları</h4>
+              <div class="field" style="display:flex;gap:16px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:140px;"><label data-i18n="admin.lessons.labelOrderShort">Sıra</label><input type="number" id="editOrder" min="1"></div>
+                <div style="flex:1;min-width:140px;"><label data-i18n="admin.lessons.labelTotalLessons">Toplam ders</label><input type="number" id="editLessons" min="0"></div>
+              </div>
+              <div class="field"><label data-i18n="admin.lessons.labelModuleTitle">Başlık</label><input type="text" id="editTitle"></div>
+              <div class="field"><label data-i18n="admin.lessons.labelListDesc">Kısa açıklama (liste)</label><textarea id="editDesc" rows="3" style="width:100%;box-sizing:border-box;"></textarea></div>
+              <p class="hint-lock-html" style="font-size:.82rem;color:var(--text-3);margin:12px 0 0;line-height:1.45;" data-i18n-html="admin.lessons.hintLockHtml">
+                <strong>Modül kilidi</strong> ve <strong>sınavı aç/kapat</strong> için <a href="admin-modules.html" style="color:var(--red);font-weight:600;">Modüller</a> sayfasındaki modül kartını kullanın.
+              </p>
+            </div>
+          </div>
+
+          <div class="editor-panel" data-editor-panel="exam">
+            <p class="lesson-panel-intro" data-i18n="admin.lessons.examIntro">Modülü bitiren öğrenciler bu sınava girer. Puanlama otomatik yapılır.</p>
+            <div class="lesson-card">
+              <h4 data-i18n="admin.lessons.examSettings">Sınav ayarları</h4>
+              <p style="font-size:.82rem;color:var(--text-3);margin:0 0 12px;line-height:1.45;" data-i18n-html="admin.lessons.examHintHtml">
+                <strong>Sınavı aç/kapat</strong> için <a href="admin-modules.html" style="color:var(--red);font-weight:600;">Modüller</a> sayfasındaki modül kartındaki <em>Sınav aktif</em> kutusunu kullanın. Buradan sorular ve geçme notu düzenlenir.
+              </p>
+              <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                <div class="field" style="flex:1;min-width:140px;">
+                  <label data-i18n="admin.lessons.passScore">Geçme notu (%)</label>
+                  <input type="number" min="0" max="100" id="examPass" oninput="examDraft.pass_score=parseInt(this.value||'70',10)||70;">
+                </div>
+                <div class="field" style="flex:1;min-width:140px;">
+                  <label data-i18n="admin.lessons.maxAttempts">Maks. deneme (0=sınırsız)</label>
+                  <input type="number" min="0" id="examMax" oninput="examDraft.max_attempts=parseInt(this.value||'0',10)||0;">
+                </div>
+              </div>
+            </div>
+            <div class="lesson-card">
+              <h4 data-i18n="admin.lessons.questions">Sorular</h4>
+              <div id="examQuestions"></div>
+              <button type="button" class="btn btn-ghost btn-sm" onclick="addExamQuestion()" data-i18n="admin.lessons.addQuestion">+ Soru ekle</button>
+            </div>
+            <div class="lesson-card">
+              <h4 data-i18n="admin.lessons.examStats">Sınav İstatistikleri</h4>
+              <div id="examStatsBox" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;"></div>
+              <div id="examAttemptsList" style="font-size:.82rem;color:var(--text-3);" data-i18n="admin.lessons.noAttempts">Henüz deneme yok.</div>
+            </div>
+          </div>
+
+          <div class="lesson-save-bar">
+            <div class="lesson-save-inner">
+              <div id="editModuleErr" class="badge badge-red" style="display:none;padding:10px 14px;border-radius:10px;font-size:.84rem;flex:1;min-width:200px;"></div>
+              <div style="display:flex;gap:10px;margin-left:auto;flex-wrap:wrap;">
+                <button type="button" class="btn btn-primary" id="saveModuleBtn" onclick="saveModuleContent()" data-i18n="admin.lessons.saveChanges">Değişiklikleri kaydet</button>
+                <a class="btn btn-ghost" href="admin-modules.html" data-i18n="common.close">Kapat</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="theme-i18n.js"></script>
+<script src="admin-shared.js"></script>
+<script>
+  document.getElementById("sidebar").innerHTML = buildSidebar("modules");
+  document.getElementById("topbar").innerHTML  = buildTopbar(typeof t === "function" ? t("admin.page.module_lessons") : "Modül içeriği");
+  initTopbar(typeof t === "function" ? t("admin.page.module_lessons") : "Modül içeriği");
+  if (typeof t === "function") document.title = "SeCScop — " + t("admin.meta.titleModuleLessons");
+  setupModalOverlayClose();
+
+  function getModuleIdFromUrl() {
+    const id = parseInt(new URLSearchParams(location.search).get("id"), 10);
+    return Number.isFinite(id) && id > 0 ? id : null;
+  }
+  function getEditorTabFromUrl() {
+    const tab = new URLSearchParams(location.search).get("tab");
+    return tab === "exam" ? "exam" : "content";
+  }
+
+  let currentModuleId = null;
+  let lessonDrafts = [];
+  let activeLessonIndex = 0;
+  let activeLessonTab = "content";
+  let activeEditorTab = "content";
+  let examDraft = { enabled: false, pass_score: 70, max_attempts: 0, questions: [] };
+  function switchEditorTab(tab) {
+    activeEditorTab = tab;
+    document.querySelectorAll(".editor-tab").forEach((b) => b.classList.toggle("active", b.dataset.editorTab === tab));
+    document.querySelectorAll(".editor-panel").forEach((p) => p.classList.toggle("active", p.dataset.editorPanel === tab));
+    if (tab === "exam" && currentModuleId) loadExamStats(currentModuleId);
+  }
+
+
+  // escapeHtml / escapeAttr / safeUrl / escapeJsString artik admin-shared.js'te
+  // tanimli (tirnak ve backtick karakterlerini de kacisan guclu surum).
+
+  function fillModuleSwitcher(mods, activeId) {
+    const sel = document.getElementById("moduleSwitcher");
+    if (!sel) return;
+    mods.sort((a, b) => a.order_num - b.order_num);
+    const opt0 = typeof t === "function" ? t("admin.lessons.selectModuleOpt") : "Modül seç…";
+    sel.innerHTML = `<option value="">${escapeHtml(opt0)}</option>` + mods.map(m =>
+      `<option value="${m.id}" ${m.id === activeId ? "selected" : ""}>#${String(m.order_num).padStart(2, "0")} — ${escapeHtml(m.title)}</option>`
+    ).join("");
+    sel.onchange = () => {
+      const v = sel.value;
+      if (v) location.href = `admin-module-lessons.html?id=${v}`;
+    };
+  }
+
+  function updateHero(m) {
+    const n = String(m.order_num).padStart(2, "0");
+    document.getElementById("heroOrder").textContent =
+      typeof t === "function" ? t("admin.lessons.heroModule", { n }) : `Modül #${n}`;
+    document.getElementById("heroTitle").textContent = m.title;
+    const lessonN = Array.isArray(m.lessons) ? m.lessons.length : 0;
+    const linkN = Array.isArray(m.links) ? m.links.length : 0;
+    const att = m.attachments || [];
+    const docs = att.filter(a => (a.kind || "document") !== "video").length;
+    const vids = att.filter(a => (a.kind || "document") === "video").length;
+    const total = m.total_lessons;
+    document.getElementById("heroMeta").textContent =
+      typeof t === "function"
+        ? t("admin.lessons.heroMetaTpl", { total, lessonN, linkN, docs, vids })
+        : `${total} ders · ${lessonN} ders içeriği · ${linkN} link · ${docs} döküman · ${vids} video`;
+    if (typeof t === "function" && m.title) {
+      document.title = "SeCScop — " + m.title + t("admin.lessons.pageTitleSuffix");
+    }
+  }
+
+  async function loadModule(id) {
+    currentModuleId = id;
+    document.getElementById("editId").value = id;
+    hideError("editModuleErr");
+    document.getElementById("lessonAttachLabel").textContent =
+      typeof t === "function" ? t("admin.lessons.notSelected") : "Seçilmedi";
+    document.getElementById("lessonAttachInput").value = "";
+
+    const [m, allMods] = await Promise.all([
+      apiFetch(`/modules/${id}`),
+      apiFetch("/modules"),
+    ]);
+    if (m.error) {
+      toast(m.error, "error");
+      location.href = "admin-modules.html";
+      return;
+    }
+    if (Array.isArray(allMods)) fillModuleSwitcher(allMods, id);
+
+    updateHero(m);
+
+    document.getElementById("editSummary").value = m.summary || "";
+    document.getElementById("editOrder").value = m.order_num;
+    document.getElementById("editLessons").value = m.total_lessons;
+    document.getElementById("editTitle").value = m.title;
+    document.getElementById("editDesc").value = m.description || "";
+
+    lessonDrafts = parseLessonsFromModule(m);
+    activeLessonIndex = 0;
+    renderLessonsUI();
+    examDraft = parseExamFromModule(m);
+    renderExamUI();
+    await loadExamStats(id);
+
+    switchLessonEditorTab("content");
+    switchEditorTab(activeEditorTab);
+  }
+
+  function defaultLesson(order = 1) {
+    return {
+      title: typeof t === "function" ? t("admin.lessons.lessonTitleDefault", { n: order }) : `Ders ${order}`,
+      content: "",
+      notes: "",
+      files: [],
+      settings: { order, duration_min: 0 },
+    };
+  }
+
+  function parseLessonsFromModule(m) {
+    if (Array.isArray(m.lessons) && m.lessons.length) {
+      return m.lessons.map((l, idx) => ({
+        title: l.title || (typeof t === "function" ? t("admin.lessons.lessonTitleDefault", { n: idx + 1 }) : `Ders ${idx + 1}`),
+        content: l.content || "",
+        notes: l.notes || "",
+        files: Array.isArray(l.files) ? l.files : [],
+        settings: {
+          order: Number(l?.settings?.order || idx + 1),
+          duration_min: Number(l?.settings?.duration_min || 0),
+        },
+      }));
+    }
+    if (Array.isArray(m.topics) && m.topics.length) {
+      return m.topics.map((topic, idx) => ({
+        title: topic.title || (typeof t === "function" ? t("admin.lessons.lessonTitleDefault", { n: idx + 1 }) : `Ders ${idx + 1}`),
+        content: topic.description || "",
+        notes: "",
+        files: [],
+        settings: { order: idx + 1, duration_min: 0 },
+      }));
+    }
+    return [];
+  }
+
+  function parseExamFromModule(m) {
+    const ex = (m && typeof m.exam === "object" && m.exam) ? m.exam : {};
+    const questions = Array.isArray(ex.questions) ? ex.questions : [];
+    return {
+      enabled: !!ex.enabled,
+      pass_score: Number(ex.pass_score || 70),
+      max_attempts: Number(ex.max_attempts || 0),
+      questions: questions.map((q) => ({
+        question: q.question || "",
+        options: Array.isArray(q.options) && q.options.length ? q.options.slice(0, 6) : ["", "", "", ""],
+        correct_index: Number.isFinite(Number(q.correct_index)) ? Number(q.correct_index) : 0,
+      })),
+    };
+  }
+
+  function defaultExamQuestion() {
+    return { question: "", options: ["", "", "", ""], correct_index: 0 };
+  }
+
+  function renderExamUI() {
+    document.getElementById("examPass").value = Number(examDraft.pass_score || 70);
+    document.getElementById("examMax").value = Number(examDraft.max_attempts || 0);
+    const qs = Array.isArray(examDraft.questions) ? examDraft.questions : [];
+    const wrap = document.getElementById("examQuestions");
+    const ql = (i) => (typeof t === "function" ? t("admin.lessons.questionLabel", { n: i + 1 }) : `Soru ${i + 1}`);
+    const qtext = typeof t === "function" ? t("admin.lessons.labelQuestionText") : "Soru metni";
+    const optPh = (oi) => (typeof t === "function" ? t("admin.lessons.phOption", { n: oi + 1 }) : `Şık ${oi + 1}`);
+    const emptyQ = typeof t === "function" ? t("admin.lessons.noQuestionsYet") : "Henüz soru yok.";
+    wrap.innerHTML = qs.length ? qs.map((q, i) => `
+      <div class="exam-q">
+        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px;">
+          <span style="font-size:.74rem;color:var(--text-3);font-family:var(--mono);">${escapeHtml(ql(i))}</span>
+          <button type="button" class="btn btn-danger btn-sm btn-icon" onclick="removeExamQuestion(${i})">✕</button>
+        </div>
+        <div class="field">
+          <label>${escapeHtml(qtext)}</label>
+          <textarea rows="2" style="width:100%;box-sizing:border-box;" oninput="updateExamQuestionText(${i}, this.value)">${escapeHtml(q.question || "")}</textarea>
+        </div>
+        <div style="margin-top:8px;">
+          ${q.options.map((opt, oi) => `
+            <div class="exam-opt-row">
+              <input type="radio" name="exam_correct_${i}" ${Number(q.correct_index) === oi ? "checked" : ""} onchange="setExamCorrect(${i}, ${oi})">
+              <input type="text" value="${escapeAttr(opt || "")}" placeholder="${escapeAttr(optPh(oi))}" style="flex:1;padding:8px 10px;border-radius:8px;border:1px solid var(--border-2);" oninput="updateExamOption(${i}, ${oi}, this.value)">
+            </div>
+          `).join("")}
+        </div>
+      </div>
+    `).join("") : `<div style="font-size:.82rem;color:var(--text-3);margin-bottom:8px;">${escapeHtml(emptyQ)}</div>`;
+  }
+
+  function addExamQuestion() {
+    examDraft.questions.push(defaultExamQuestion());
+    renderExamUI();
+  }
+  function removeExamQuestion(i) {
+    examDraft.questions.splice(i, 1);
+    renderExamUI();
+  }
+  function updateExamQuestionText(i, v) { examDraft.questions[i].question = v; }
+  function updateExamOption(i, oi, v) { examDraft.questions[i].options[oi] = v; }
+  function setExamCorrect(i, oi) { examDraft.questions[i].correct_index = oi; }
+
+  function collectExam() {
+    const questions = (examDraft.questions || [])
+      .map((q) => ({
+        question: String(q.question || "").trim(),
+        options: (Array.isArray(q.options) ? q.options : []).map((x) => String(x || "").trim()).filter(Boolean),
+        correct_index: Number(q.correct_index || 0),
+      }))
+      .filter((q) => q.question && q.options.length >= 2)
+      .map((q) => ({
+        question: q.question,
+        options: q.options,
+        correct_index: Math.max(0, Math.min(q.options.length - 1, q.correct_index)),
+      }));
+    return {
+      pass_score: Math.max(0, Math.min(100, Number(examDraft.pass_score || 70))),
+      max_attempts: Math.max(0, Number(examDraft.max_attempts || 0)),
+      questions,
+    };
+  }
+
+  async function loadExamStats(moduleId) {
+    const box = document.getElementById("examStatsBox");
+    const list = document.getElementById("examAttemptsList");
+    if (!box || !list) return;
+    const loc = typeof getLang === "function" && getLang() === "en" ? "en-US" : "tr-TR";
+    const loadLbl = typeof t === "function" ? t("admin.lessons.examLoading") : "Yükleniyor…";
+    const errLbl = typeof t === "function" ? t("admin.lessons.examLoadErr") : "Yüklenemedi";
+    const noAtt = typeof t === "function" ? t("admin.lessons.noAttempts") : "Henüz deneme yok.";
+    box.innerHTML = `<span class="badge badge-gray">${escapeHtml(loadLbl)}</span>`;
+    list.innerHTML = "";
+    const data = await apiFetch(`/modules/${moduleId}/exam/stats`);
+    if (!data || data.error) {
+      box.innerHTML = `<span class="badge badge-red">${escapeHtml(data?.error || errLbl)}</span>`;
+      return;
+    }
+    const s = data.summary || {};
+    const ta = s.total_attempts || 0;
+    const pa = s.passed_attempts || 0;
+    const pr = s.pass_rate || 0;
+    const av = s.average_score || 0;
+    const uu = s.unique_users || 0;
+    const b1 = typeof t === "function" ? t("admin.lessons.statAttempts", { n: ta }) : `Deneme: ${ta}`;
+    const b2 = typeof t === "function" ? t("admin.lessons.statPassed", { n: pa }) : `Geçen: ${pa}`;
+    const b3 = typeof t === "function" ? t("admin.lessons.statPassRate", { n: pr }) : `Geçiş Oranı: %${pr}`;
+    const b4 = typeof t === "function" ? t("admin.lessons.statAvg", { n: av }) : `Ortalama: %${av}`;
+    const b5 = typeof t === "function" ? t("admin.lessons.statStudents", { n: uu }) : `Öğrenci: ${uu}`;
+    box.innerHTML = `
+      <span class="badge badge-blue">${escapeHtml(b1)}</span>
+      <span class="badge badge-green">${escapeHtml(b2)}</span>
+      <span class="badge badge-orange">${escapeHtml(b3)}</span>
+      <span class="badge badge-gray">${escapeHtml(b4)}</span>
+      <span class="badge badge-gray">${escapeHtml(b5)}</span>
+    `;
+    const attempts = Array.isArray(data.attempts) ? data.attempts : [];
+    if (!attempts.length) {
+      list.innerHTML = `<div style="font-size:.82rem;color:var(--text-3);">${escapeHtml(noAtt)}</div>`;
+      return;
+    }
+
+    // Group by student for cleaner analytics.
+    const byUser = new Map();
+    for (const a of attempts) {
+      const key = String(a.user_id || a.email || a.name || "unknown");
+      if (!byUser.has(key)) {
+        byUser.set(key, {
+          user_id: a.user_id,
+          name: a.name || "—",
+          email: a.email || "—",
+          attempts: 0,
+          pass_count: 0,
+          best_score: Number(a.score || 0),
+          last_score: Number(a.score || 0),
+          last_attempted_at: a.attempted_at,
+        });
+      }
+      const u = byUser.get(key);
+      u.attempts += 1;
+      if (a.passed) u.pass_count += 1;
+      u.best_score = Math.max(u.best_score, Number(a.score || 0));
+      if (!u.last_attempted_at || new Date(a.attempted_at) > new Date(u.last_attempted_at)) {
+        u.last_attempted_at = a.attempted_at;
+        u.last_score = Number(a.score || 0);
+      }
+    }
+    const users = [...byUser.values()].sort((a, b) => b.best_score - a.best_score || b.attempts - a.attempts);
+    const recent = attempts.slice(0, 10);
+
+    const sumTitle = typeof t === "function" ? t("admin.lessons.studentSummary") : "Öğrenci Bazlı Özet";
+    const c1 = typeof t === "function" ? t("admin.lessons.colStudent") : "Öğrenci";
+    const c2 = typeof t === "function" ? t("admin.lessons.colAttempts") : "Deneme";
+    const c3 = typeof t === "function" ? t("admin.lessons.colPassed") : "Geçti";
+    const c4 = typeof t === "function" ? t("admin.lessons.colBest") : "En İyi";
+    const c5 = typeof t === "function" ? t("admin.lessons.colLastAttempt") : "Son Deneme";
+    const recentTitle = typeof t === "function" ? t("admin.lessons.recentAttempts") : "Son Denemeler";
+    const passBadge = typeof t === "function" ? t("admin.lessons.badgePassed") : "GEÇTİ";
+    const failBadge = typeof t === "function" ? t("admin.lessons.badgeFailed") : "KALDI";
+
+    list.innerHTML = `
+      <div style="font-size:.75rem;color:var(--text-3);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">${escapeHtml(sumTitle)}</div>
+      <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:12px;">
+        <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1.4fr;gap:8px;padding:8px 10px;background:var(--bg);font-size:.72rem;color:var(--text-3);font-weight:700;text-transform:uppercase;letter-spacing:.04em;">
+          <span>${escapeHtml(c1)}</span><span>${escapeHtml(c2)}</span><span>${escapeHtml(c3)}</span><span>${escapeHtml(c4)}</span><span>${escapeHtml(c5)}</span>
+        </div>
+        ${users.map((u) => `
+          <div style="display:grid;grid-template-columns:2fr 1fr 1fr 1fr 1.4fr;gap:8px;padding:8px 10px;border-top:1px solid var(--border);align-items:center;">
+            <div style="min-width:0;">
+              <div style="font-size:.82rem;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(u.name)}</div>
+              <div style="font-size:.72rem;color:var(--text-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(u.email)}</div>
+            </div>
+            <span style="font-family:var(--mono);font-size:.78rem;color:var(--text-2);">${u.attempts}</span>
+            <span style="font-family:var(--mono);font-size:.78rem;color:var(--text-2);">${u.pass_count}</span>
+            <span style="font-family:var(--mono);font-size:.78rem;color:var(--green);font-weight:700;">%${u.best_score}</span>
+            <span style="font-size:.74rem;color:var(--text-3);">${new Date(u.last_attempted_at).toLocaleString(loc)}</span>
+          </div>
+        `).join("")}
+      </div>
+
+      <div style="font-size:.75rem;color:var(--text-3);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">${escapeHtml(recentTitle)}</div>
+      <div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;">
+        ${recent.map((a) => `
+          <div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-top:1px solid var(--border);">
+            <span class="badge ${a.passed ? "badge-green" : "badge-red"}" style="font-size:.7rem;">${escapeHtml(a.passed ? passBadge : failBadge)}</span>
+            <span style="font-size:.82rem;color:var(--text);font-weight:600;min-width:140px;">${escapeHtml(a.name || a.email || "—")}</span>
+            <span style="font-family:var(--mono);font-size:.78rem;color:var(--text-2);">%${a.score}</span>
+            <span style="margin-left:auto;font-size:.74rem;color:var(--text-3);">${new Date(a.attempted_at).toLocaleString(loc)}</span>
+          </div>
+        `).join("")}
+      </div>
+    `;
+  }
+
+  function switchLessonEditorTab(tab) {
+    activeLessonTab = tab;
+    document.querySelectorAll(".lesson-subtab").forEach((b) => b.classList.toggle("active", b.dataset.lessonTab === tab));
+    document.querySelectorAll(".lesson-subpanel").forEach((p) => p.classList.toggle("active", p.dataset.lessonPanel === tab));
+  }
+
+  function renderLessonsUI() {
+    if (!lessonDrafts.length) lessonDrafts = [defaultLesson(1)];
+    if (activeLessonIndex < 0 || activeLessonIndex >= lessonDrafts.length) activeLessonIndex = 0;
+
+    const list = document.getElementById("lessonList");
+    const lessonDefTitle = (i) =>
+      typeof t === "function" ? t("admin.lessons.lessonTitleDefault", { n: i + 1 }) : `Ders ${i + 1}`;
+    list.innerHTML = lessonDrafts.map((l, i) => `
+      <button type="button" class="lesson-list-item ${i === activeLessonIndex ? "active" : ""}" onclick="selectLesson(${i})">
+        <span style="font-family:var(--mono);font-size:.74rem;color:var(--text-3);">#${String(i + 1).padStart(2, "0")}</span>
+        <span style="font-size:.84rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(l.title || lessonDefTitle(i))}</span>
+      </button>
+    `).join("");
+
+    const cur = lessonDrafts[activeLessonIndex];
+    document.getElementById("lessonTitleInput").value = cur.title || "";
+    document.getElementById("lessonContentInput").value = cur.content || "";
+    document.getElementById("lessonNotesInput").value = cur.notes || "";
+    document.getElementById("lessonOrderInput").value = cur.settings?.order ?? (activeLessonIndex + 1);
+    document.getElementById("lessonDurationInput").value = cur.settings?.duration_min ?? 0;
+    renderLessonFileRows();
+    switchLessonEditorTab(activeLessonTab);
+  }
+
+  function renderLessonFileRows() {
+    const cur = lessonDrafts[activeLessonIndex];
+    const files = Array.isArray(cur.files) ? cur.files : [];
+    const phTitle = typeof t === "function" ? t("admin.lessons.phFileTitle") : "Başlık";
+    const phUrl = typeof t === "function" ? t("admin.lessons.phUrl") : "https://...";
+    const emptyLf = typeof t === "function" ? t("admin.lessons.noLessonFiles") : "Henüz ders dosya/link kaydı yok.";
+    document.getElementById("lessonFilesRows").innerHTML = files.length ? files.map((f, i) => `
+      <div class="lesson-file-row">
+        <input type="text" placeholder="${escapeAttr(phTitle)}" value="${escapeAttr(f.title || "")}" style="flex:1;min-width:140px;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border-2);" oninput="updateLessonFile(${i}, 'title', this.value)">
+        <input type="url" placeholder="${escapeAttr(phUrl)}" value="${escapeAttr(f.url || "")}" style="flex:2;min-width:220px;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border-2);" oninput="updateLessonFile(${i}, 'url', this.value)">
+        <button type="button" class="btn btn-danger btn-sm btn-icon" onclick="removeLessonFileRow(${i})">✕</button>
+      </div>
+    `).join("") : `<div style="font-size:.82rem;color:var(--text-3);margin-bottom:8px;">${escapeHtml(emptyLf)}</div>`;
+  }
+
+  function onLessonAttachPick(input) {
+    const f = input && input.files && input.files[0];
+    const none = typeof t === "function" ? t("admin.lessons.notSelected") : "Seçilmedi";
+    document.getElementById("lessonAttachLabel").textContent = f ? f.name : none;
+  }
+
+  async function uploadLessonAttachmentAsLink(kind) {
+    const input = document.getElementById("lessonAttachInput");
+    const file = input?.files?.[0];
+    if (!file || !currentModuleId) {
+      toast(typeof t === "function" ? t("js.toast.pickFile") : "Önce bir dosya seçin.", "error");
+      return;
+    }
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("kind", kind === "video" ? "video" : "document");
+    const res = await fetch(`${API}/modules/${currentModuleId}/attachments`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${_token}` },
+      body: fd,
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      toast(data.error || (typeof t === "function" ? t("js.toast.uploadFail") : "Dosya yüklenemedi."), "error");
+      return;
+    }
+    const url = `${API}/modules/${currentModuleId}/attachments/${data.id}/download`;
+    lessonDrafts[activeLessonIndex].files.push({ title: data.file_name || file.name, url });
+    renderLessonFileRows();
+    input.value = "";
+    document.getElementById("lessonAttachLabel").textContent =
+      typeof t === "function" ? t("admin.lessons.notSelected") : "Seçilmedi";
+    toast(typeof t === "function" ? t("js.toast.uploadOk") : "Dosya yüklendi ve derse eklendi.");
+  }
+
+  function selectLesson(i) { activeLessonIndex = i; renderLessonsUI(); }
+  function addLesson() { lessonDrafts.push(defaultLesson(lessonDrafts.length + 1)); activeLessonIndex = lessonDrafts.length - 1; renderLessonsUI(); }
+  function removeActiveLesson() {
+    if (lessonDrafts.length === 1) {
+      toast(typeof t === "function" ? t("js.toast.minOneLesson") : "En az bir ders kalmalı.", "error");
+      return;
+    }
+    lessonDrafts.splice(activeLessonIndex, 1);
+    activeLessonIndex = Math.max(0, activeLessonIndex - 1);
+    renderLessonsUI();
+  }
+
+  function updateActiveLessonTitle(v) { lessonDrafts[activeLessonIndex].title = v; renderLessonsUI(); }
+  function updateActiveLessonContent(v) { lessonDrafts[activeLessonIndex].content = v; }
+  function updateActiveLessonNotes(v) { lessonDrafts[activeLessonIndex].notes = v; }
+  function updateActiveLessonOrder(v) { lessonDrafts[activeLessonIndex].settings.order = parseInt(v || "0", 10) || activeLessonIndex + 1; }
+  function updateActiveLessonDuration(v) { lessonDrafts[activeLessonIndex].settings.duration_min = parseInt(v || "0", 10) || 0; }
+  function addLessonFileRow() { lessonDrafts[activeLessonIndex].files.push({ title: "", url: "" }); renderLessonFileRows(); }
+  function removeLessonFileRow(i) { lessonDrafts[activeLessonIndex].files.splice(i, 1); renderLessonFileRows(); }
+  function updateLessonFile(i, field, value) { lessonDrafts[activeLessonIndex].files[i][field] = value; }
+
+  function collectLessons() {
+    return lessonDrafts
+      .map((l, idx) => ({
+        title: (l.title || "").trim(),
+        content: (l.content || "").trim(),
+        notes: (l.notes || "").trim(),
+        files: (Array.isArray(l.files) ? l.files : [])
+          .map((f) => ({ title: (f.title || "").trim(), url: (f.url || "").trim() }))
+          .filter((f) => f.url),
+        settings: {
+          order: Number(l?.settings?.order || idx + 1),
+          duration_min: Number(l?.settings?.duration_min || 0),
+        },
+      }))
+      .filter((l) => l.title || l.content || l.files.length);
+  }
+
+  function renderFilesList(attachments, moduleId) {
+    const docs = attachments.filter(a => (a.kind || "document") !== "video");
+    const vids = attachments.filter(a => (a.kind || "document") === "video");
+    const btnDl = typeof t === "function" ? t("admin.lessons.btnDownload") : "İndir";
+    const btnDel = typeof t === "function" ? t("common.delete") : "Sil";
+    const row = (a, icon) => `
+      <div class="file-row">
+        <span>${icon}</span>
+        <span style="flex:1;overflow:hidden;text-overflow:ellipsis;">${escapeHtml(a.file_name)}</span>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="downloadModFile(${moduleId},${a.id})">${escapeHtml(btnDl)}</button>
+        <button type="button" class="btn btn-danger btn-sm" onclick="deleteModFile(${moduleId},${a.id})">${escapeHtml(btnDel)}</button>
+      </div>`;
+    const emptyDocs = typeof t === "function" ? t("admin.lessons.noDocs") : "Henüz döküman yok.";
+    const emptyVids = typeof t === "function" ? t("admin.lessons.noVideos") : "Henüz video yok.";
+    document.getElementById("filesListDocs").innerHTML = docs.length
+      ? docs.map(a => row(a, "📄")).join("")
+      : `<div style="font-size:.86rem;color:var(--text-3);">${escapeHtml(emptyDocs)}</div>`;
+    document.getElementById("filesListVideos").innerHTML = vids.length
+      ? vids.map(a => row(a, "🎬")).join("")
+      : `<div style="font-size:.86rem;color:var(--text-3);">${escapeHtml(emptyVids)}</div>`;
+  }
+
+  async function downloadModFile(mid, aid) {
+    const res = await fetch(`${API}/modules/${mid}/attachments/${aid}/download`, {
+      headers: { Authorization: `Bearer ${_token}` },
+    });
+    if (!res.ok) {
+      toast(typeof t === "function" ? t("js.toast.downloadFail") : "İndirilemedi", "error");
+      return;
+    }
+    const blob = await res.blob();
+    const cd = res.headers.get("Content-Disposition");
+    let name = typeof t === "function" ? t("admin.lessons.defaultFileLabel") : "dosya";
+    if (cd && /filename="?([^";]+)"?/i.test(cd)) name = RegExp.$1;
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = name;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  async function deleteModFile(mid, aid) {
+    const q = typeof t === "function" ? t("js.confirm.deleteModuleFile") : "Bu dosyayı silmek istiyor musunuz?";
+    if (!confirm(q)) return;
+    const res = await fetch(`${API}/modules/${mid}/attachments/${aid}`, {
+      method: "DELETE",
+      headers: { Authorization: `Bearer ${_token}` },
+    });
+    if (!res.ok) {
+      toast(typeof t === "function" ? t("js.toast.deleteFail") : "Silinemedi", "error");
+      return;
+    }
+    toast(typeof t === "function" ? t("js.toast.deleted") : "Silindi.");
+    loadModule(mid);
+  }
+
+  async function uploadModuleFile(kind) {
+    const mid = document.getElementById("editId").value;
+    const input = kind === "video" ? document.getElementById("modVideoInput") : document.getElementById("modFileInput");
+    if (!input.files[0]) {
+      toast(typeof t === "function" ? t("js.toast.chooseFile") : "Dosya seçin.", "error");
+      return;
+    }
+    const fd = new FormData();
+    fd.append("file", input.files[0]);
+    fd.append("kind", kind === "video" ? "video" : "document");
+    const res = await fetch(`${API}/modules/${mid}/attachments`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${_token}` },
+      body: fd,
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      toast(data.error || (typeof t === "function" ? t("js.toast.uploadErr") : "Yükleme hatası"), "error");
+      return;
+    }
+    input.value = "";
+    const none = typeof t === "function" ? t("admin.lessons.notSelected") : "Seçilmedi";
+    document.getElementById(kind === "video" ? "modVideoLabel" : "modFileLabel").textContent = none;
+    toast(
+      kind === "video"
+        ? (typeof t === "function" ? t("js.toast.videoOk") : "Video yüklendi.")
+        : (typeof t === "function" ? t("js.toast.docOk") : "Döküman yüklendi.")
+    );
+    loadModule(parseInt(mid, 10));
+  }
+
+  async function saveModuleContent() {
+    const id = document.getElementById("editId").value;
+    const btn = document.getElementById("saveModuleBtn");
+    const fresh = await apiFetch(`/modules/${id}`);
+    if (!fresh || fresh.error) {
+      showError(
+        "editModuleErr",
+        fresh?.error ||
+          (typeof t === "function" ? t("js.showError.moduleReadFail") : "Modül durumu okunamadı. Sayfayı yenileyin.")
+      );
+      return;
+    }
+    const lessons = collectLessons();
+    const exam = collectExam();
+    exam.enabled = !!(fresh.exam && fresh.exam.enabled);
+    const body = {
+      order_num: parseInt(document.getElementById("editOrder").value, 10),
+      title: document.getElementById("editTitle").value.trim(),
+      description: document.getElementById("editDesc").value.trim(),
+      total_lessons: parseInt(document.getElementById("editLessons").value, 10),
+      is_locked: !!fresh.is_locked,
+      summary: document.getElementById("editSummary").value.trim(),
+      lessons,
+      exam,
+      topics: lessons.map((l) => ({ title: l.title, description: l.content.slice(0, 300) })),
+    };
+    if (!body.title) {
+      showError("editModuleErr", typeof t === "function" ? t("js.showError.titleRequired") : "Başlık zorunlu.");
+      return;
+    }
+    hideError("editModuleErr");
+    btn.textContent = typeof t === "function" ? t("common.saving") : "Kaydediliyor…";
+    btn.disabled = true;
+    const res = await fetch(`${API}/modules/${id}`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    btn.textContent = typeof t === "function" ? t("admin.lessons.saveChanges") : "Değişiklikleri kaydet";
+    btn.disabled = false;
+    if (!res.ok) {
+      showError("editModuleErr", data.error || (typeof t === "function" ? t("js.showError.generic") : "Hata"));
+      return;
+    }
+    toast(typeof t === "function" ? t("common.saved") : "Kaydedildi.");
+    await loadModule(parseInt(id, 10));
+  }
+
+  (async function init() {
+    const mid = getModuleIdFromUrl();
+    activeEditorTab = getEditorTabFromUrl();
+    if (!mid) {
+      window.location.replace("admin-modules.html");
+      return;
+    }
+    document.getElementById("editorView").style.display = "block";
+    await loadModule(mid);
+  })();
+</script>
+</body>
+</html>

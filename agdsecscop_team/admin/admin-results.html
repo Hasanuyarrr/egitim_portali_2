@@ -1,0 +1,951 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — Analytics</title>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    .hero-card {
+      background:var(--bg-card);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      overflow:hidden;
+    }
+    .hero-head {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      padding:14px 16px;
+      border-bottom:1px solid var(--border);
+    }
+    .hero-title { font-size:.95rem; font-weight:700; color:var(--text); }
+    .hero-sub { font-size:.78rem; color:var(--text-3); margin-top:2px; }
+    .chart-wrap { position:relative; width:100%; height:360px; padding:12px 10px 10px; }
+    .progress-mini-table { width:100%; border-collapse:collapse; font-size:.8rem; margin-top:4px; }
+    .progress-mini-table th, .progress-mini-table td { padding:8px 10px; text-align:left; border-bottom:1px solid var(--border); }
+    .progress-mini-table th { color:var(--text-3); font-weight:600; font-size:.72rem; text-transform:uppercase; letter-spacing:.04em; }
+    .progress-mini-table td { color:var(--text); }
+    .results-tabs { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px; }
+    .results-tab-btn {
+      padding:8px 14px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background:var(--bg-card);
+      color:var(--text);
+      cursor:pointer;
+      font-size:.85rem;
+      font-weight:600;
+    }
+    .results-tab-btn.active { background:var(--red); color:#fff; border-color:var(--red); }
+    .results-tab-panel { display:none; }
+    .results-tab-panel.active { display:block; }
+  </style>
+</head>
+<body>
+<div class="admin-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+  <main class="admin-main">
+    <header class="topbar" id="topbar"></header>
+    <div class="page">
+      <p style="font-size:.9rem;color:var(--text-2);margin:0 0 16px;line-height:1.55;max-width:720px;" data-i18n-html="admin.results.intro"></p>
+
+      <div class="results-tabs" role="tablist">
+        <button type="button" class="results-tab-btn active" data-tab="all" onclick="showResultsTab('all')" data-i18n="admin.results.tabAll">Tümü</button>
+        <button type="button" class="results-tab-btn" data-tab="ctf" onclick="showResultsTab('ctf')" data-i18n="admin.results.tabCtf">CTF</button>
+        <button type="button" class="results-tab-btn" data-tab="module" onclick="showResultsTab('module')" data-i18n="admin.results.tabModule">Modül</button>
+        <button type="button" class="results-tab-btn" data-tab="lesson" onclick="showResultsTab('lesson')" data-i18n="admin.results.tabLesson">Ders</button>
+        <button type="button" class="results-tab-btn" data-tab="exam" onclick="showResultsTab('exam')" data-i18n="admin.results.tabExam">Sınav</button>
+      </div>
+
+      <div class="results-tab-panel active" data-tab="all" id="panelAll">
+        <div class="hero-card">
+          <div class="hero-head">
+            <div>
+              <div class="hero-title" data-i18n="admin.results.allHeroTitle">Genel başarı sıralaması</div>
+              <div class="hero-sub" data-i18n="admin.results.allHeroSub">Modül tamamlama oranı, CTF puanı (sınıfa göre normalize) ve sınav geçiş oranı birleştirilerek hesaplanan 0–100 başarı skoru; yüksekten düşüğe sıra.</div>
+            </div>
+          </div>
+          <div style="padding:0 16px 16px;overflow-x:auto;">
+            <div id="allStudentsEmpty" style="display:none;text-align:center;color:var(--text-3);padding:16px;" data-i18n="admin.results.emptyNoStudents">Öğrenci kaydı yok.</div>
+            <table class="progress-mini-table" id="allStudentsTable" style="display:none;margin:0;">
+              <thead>
+                <tr>
+                  <th style="width:52px;" data-i18n="admin.results.thRank">#</th>
+                  <th data-i18n="admin.results.thStudent">Öğrenci</th>
+                  <th data-i18n="admin.results.thEmail">E-posta</th>
+                  <th style="text-align:right;" data-i18n="admin.results.thSuccess">Başarı</th>
+                  <th style="text-align:right;" data-i18n="admin.results.thModPct">Modül %</th>
+                  <th style="text-align:right;" data-i18n="admin.results.thCtf">CTF</th>
+                  <th style="text-align:right;" data-i18n="admin.results.thSolves">Çözüm</th>
+                  <th style="text-align:right;" data-i18n="admin.results.thModDone">Modül bit.</th>
+                  <th style="text-align:right;" data-i18n="admin.results.thExamPass">Sınav geç.</th>
+                  <th style="text-align:right;" data-i18n="admin.results.thExamAvg">Sınav ort.</th>
+                </tr>
+              </thead>
+              <tbody id="allStudentsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="results-tab-panel" data-tab="ctf" id="panelCtf">
+        <div class="hero-card">
+          <div class="hero-head">
+            <div>
+              <div class="hero-title" data-i18n="admin.results.ctfHeroTitle">CTF görevleri — kim çözdü</div>
+              <div class="hero-sub" data-i18n="admin.results.ctfHeroSub">Her görevi hangi öğrencilerin çözdüğü ve çözüm zamanı</div>
+            </div>
+          </div>
+          <div style="padding:0 16px 16px;overflow-x:auto;">
+            <div id="ctfSolverEmpty" style="display:none;text-align:center;color:var(--text-3);padding:16px;" data-i18n="admin.results.ctfEmpty">Kayıtlı CTF görevi yok veya henüz çözüm yok.</div>
+            <table class="progress-mini-table" id="ctfSolverTable" style="display:none;margin:0;">
+              <thead>
+                <tr>
+                  <th data-i18n="admin.results.thTask">Görev</th>
+                  <th style="text-align:right;" data-i18n="admin.results.thPoints">Puan</th>
+                  <th data-i18n="admin.results.thSolvers">Çözenler</th>
+                </tr>
+              </thead>
+              <tbody id="ctfSolverTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="results-tab-panel" data-tab="module" id="panelModule">
+        <div class="hero-card">
+          <div class="hero-head">
+            <div>
+              <div class="hero-title" data-i18n="admin.results.modHeroTitle">Modül bazlı ilerleme</div>
+              <div class="hero-sub" data-i18n="admin.results.modHeroSub">Her modülde açılmış kayıtlar üzerinden ortalama tamamlama yüzdesi</div>
+            </div>
+          </div>
+          <div class="chart-wrap" style="height:min(380px, 40vh);"><canvas id="moduleProgressChart"></canvas></div>
+          <div id="moduleProgressEmpty" style="display:none;text-align:center;color:var(--text-3);padding:16px 0 18px;" data-i18n="admin.results.modProgressEmpty">Modül veya ilerleme verisi yok.</div>
+          <div style="padding:0 16px 16px;">
+            <table class="progress-mini-table" id="moduleProgressMiniTable" style="display:none;">
+              <thead>
+                <tr>
+                  <th data-i18n="admin.results.thModule">Modül</th>
+                  <th style="text-align:right;" data-i18n="admin.results.thAvgPct">Ort. %</th>
+                  <th style="text-align:right;" data-i18n="admin.results.thCompleted">Tamamlayan</th>
+                  <th style="text-align:right;" data-i18n="admin.results.thOpened">Açan</th>
+                </tr>
+              </thead>
+              <tbody id="moduleProgressMiniTbody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="hero-card" style="margin-top:14px;">
+          <div class="hero-head">
+            <div>
+              <div class="hero-title" data-i18n="admin.results.doneHeroTitle">Tamamlanan modüller</div>
+              <div class="hero-sub" data-i18n="admin.results.doneHeroSub">Modülü kim ne zaman bitirdi</div>
+            </div>
+          </div>
+          <div style="padding:0 16px 16px;">
+            <div id="moduleCompletionEmpty" style="display:none;text-align:center;color:var(--text-3);padding:12px;" data-i18n="admin.results.doneEmpty">Henüz modül tamamlama kaydı yok.</div>
+            <div style="overflow:auto;max-height:280px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+              <table class="progress-mini-table" id="moduleCompletionTable" style="display:none;margin:0;">
+                <thead>
+                  <tr>
+                    <th data-i18n="admin.results.thModule">Modül</th>
+                    <th data-i18n="admin.results.thStudent">Öğrenci</th>
+                    <th data-i18n="admin.results.thEmail">E-posta</th>
+                    <th style="white-space:nowrap;" data-i18n="admin.results.thModDoneTime">Modül bitiş zamanı</th>
+                  </tr>
+                </thead>
+                <tbody id="moduleCompletionTbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="results-tab-panel" data-tab="lesson" id="panelLesson">
+        <div class="hero-card">
+          <div class="hero-head">
+            <div>
+              <div class="hero-title" data-i18n="admin.results.lessonHeroTitle">Ders bazlı tamamlama dağılımı</div>
+              <div class="hero-sub" data-i18n-html="admin.results.lessonHeroSub"></div>
+            </div>
+            <select id="lessonDistModuleSelect" style="padding:8px 12px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.85rem;max-width:min(320px,100%);" onchange="renderLessonDistChart()" data-i18n-title="admin.results.lessonSelectTitle" title="Modül veya Tümü"></select>
+          </div>
+          <div class="chart-wrap" style="height:340px;"><canvas id="lessonDistChart"></canvas></div>
+          <div id="lessonDistEmpty" style="display:none;text-align:center;color:var(--text-3);padding:16px 0 18px;" data-i18n="admin.results.lessonDistEmpty">Bu seçim için ilerleme kaydı yok.</div>
+          <div id="lessonDistDetailWrap" style="display:none;padding:0 16px 16px;">
+            <div style="font-size:.72rem;font-weight:600;color:var(--text-3);margin:8px 0 10px;text-transform:uppercase;letter-spacing:.04em;" data-i18n="admin.results.lessonStepStudents">Adıma göre öğrenciler</div>
+            <div style="max-height:280px;overflow:auto;border:1px solid var(--border);border-radius:var(--radius-sm);">
+              <table class="progress-mini-table" id="lessonDistDetailTable" style="margin:0;"></table>
+            </div>
+          </div>
+        </div>
+        <div class="hero-card" style="margin-top:14px;">
+          <div class="hero-head">
+            <div>
+              <div class="hero-title" data-i18n="admin.results.logHeroTitle">Ders adımları günlüğü</div>
+              <div class="hero-sub" data-i18n="admin.results.logHeroSub">Her ders adımı ne zaman tamamlandı (yeni kayıtlar anlık zaman damgası alır)</div>
+            </div>
+          </div>
+          <div style="padding:0 16px 16px;">
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin:0 0 10px;">
+              <input type="search" id="learningLogSearch" data-i18n-placeholder="admin.results.logSearchPh" placeholder="Modül, ders veya öğrenci ara…" style="flex:1;min-width:200px;padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.85rem;" oninput="filterLearningLog()" autocomplete="off">
+              <select id="learningLogModuleFilter" style="padding:8px 10px;border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--bg);color:var(--text);font-size:.82rem;max-width:260px;" onchange="filterLearningLog()">
+                <option value="" data-i18n="admin.results.allModulesOpt">Tüm modüller</option>
+              </select>
+            </div>
+            <div id="lessonLogEmpty" style="display:none;text-align:center;color:var(--text-3);padding:12px;" data-i18n="admin.results.logEmpty">Henüz ders adımı kaydı yok.</div>
+            <div style="overflow:auto;max-height:440px;border:1px solid var(--border);border-radius:var(--radius-sm);">
+              <table class="progress-mini-table" id="lessonLogTable" style="display:none;margin:0;">
+                <thead>
+                  <tr>
+                    <th style="white-space:nowrap;" data-i18n="admin.results.thTime">Zaman</th>
+                    <th data-i18n="admin.results.thModule">Modül</th>
+                    <th data-i18n="admin.results.thLesson">Ders</th>
+                    <th data-i18n="admin.results.thStudent">Öğrenci</th>
+                    <th data-i18n="admin.results.thEmail">E-posta</th>
+                  </tr>
+                </thead>
+                <tbody id="lessonLogTbody"></tbody>
+              </table>
+            </div>
+            <p style="font-size:.72rem;color:var(--text-3);margin:12px 0 0;line-height:1.5;" data-i18n-html="admin.results.logFootnote"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="results-tab-panel" data-tab="exam" id="panelExam">
+        <div class="hero-card">
+          <div class="hero-head">
+            <div>
+              <div class="hero-title" data-i18n="admin.results.examHeroTitle">Modül sınav denemeleri</div>
+              <div class="hero-sub" data-i18n="admin.results.examHeroSub">Öğrenci başına sınav skoru, geçti/kaldı ve deneme zamanı</div>
+            </div>
+          </div>
+          <div style="padding:0 16px 16px;overflow-x:auto;">
+            <div id="examResultsEmpty" style="display:none;text-align:center;color:var(--text-3);padding:16px;" data-i18n="admin.results.examEmpty">Henüz sınav denemesi kaydı yok.</div>
+            <table class="progress-mini-table" id="examResultsTable" style="display:none;margin:0;">
+              <thead>
+                <tr>
+                  <th data-i18n="admin.results.thTime">Zaman</th>
+                  <th data-i18n="admin.results.thModule">Modül</th>
+                  <th data-i18n="admin.results.thStudent">Öğrenci</th>
+                  <th data-i18n="admin.results.thEmail">E-posta</th>
+                  <th style="text-align:right;" data-i18n="admin.results.thScore">Skor</th>
+                  <th data-i18n="admin.results.thOutcome">Sonuç</th>
+                </tr>
+              </thead>
+              <tbody id="examResultsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <div class="hero-card" style="margin-top:16px;">
+          <div class="hero-head">
+            <div>
+              <div class="hero-title" data-i18n="admin.results.generalExamHeroTitle">Genel sınav denemeleri</div>
+              <div class="hero-sub" data-i18n="admin.results.generalExamHeroSub">Yayınlanan genel sınavların tamamlanan denemeleri; öğrenci, skor ve ihlal sayısı</div>
+            </div>
+          </div>
+          <div style="padding:0 16px 16px;overflow-x:auto;">
+            <div id="generalExamResultsEmpty" style="display:none;text-align:center;color:var(--text-3);padding:16px;" data-i18n="admin.results.generalExamEmpty">Henüz genel sınav sonucu yok.</div>
+            <table class="progress-mini-table" id="generalExamResultsTable" style="display:none;margin:0;">
+              <thead>
+                <tr>
+                  <th data-i18n="admin.results.thTime">Zaman</th>
+                  <th data-i18n="admin.results.thGeneralExam">Genel sınav</th>
+                  <th data-i18n="admin.results.thStudent">Öğrenci</th>
+                  <th data-i18n="admin.results.thEmail">E-posta</th>
+                  <th style="text-align:right;" data-i18n="admin.results.thScore">Skor</th>
+                  <th data-i18n="admin.results.thOutcome">Sonuç</th>
+                  <th style="text-align:right;" data-i18n="admin.results.thViolations">İhlal</th>
+                </tr>
+              </thead>
+              <tbody id="generalExamResultsTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script src="theme-i18n.js"></script>
+<script src="admin-shared.js"></script>
+<!-- Chart.js yerel kopya (tedarik zinciri riski: CDN'den çalıştırılabilir kod çekilmiyor) -->
+<script src="chart.umd.min.js"></script>
+<script>
+  document.getElementById("sidebar").innerHTML = buildSidebar("results");
+  document.getElementById("topbar").innerHTML = buildTopbar(typeof t === "function" ? t("admin.nav.results") : "Sonuçlar");
+  initTopbar(typeof t === "function" ? t("admin.nav.results") : "Sonuçlar");
+  if (typeof t === "function") document.title = "SeCScop — " + t("admin.nav.results");
+
+  function resLoc() {
+    return typeof getLang === "function" && getLang() === "en" ? "en-US" : "tr-TR";
+  }
+  function resT(key, vars) {
+    return typeof t === "function" ? t(key, vars) : "";
+  }
+
+  let moduleProgressChart = null;
+  let lessonDistChart = null;
+  let progressStats = { modules: [] };
+  let ctfChallenges = [];
+  let learningActivity = { module_completions: [], lesson_events: [] };
+  let examAttempts = [];
+  let generalExamAttempts = [];
+  let studentRows = [];
+  let activeTab = "all";
+  let tabRendered = { module: false, lesson: false };
+
+  const MEDALS = { 1: "🥇", 2: "🥈", 3: "🥉" };
+
+  function renderAllStudentsTable() {
+    const tbody = document.getElementById("allStudentsTbody");
+    const tbl = document.getElementById("allStudentsTable");
+    const empty = document.getElementById("allStudentsEmpty");
+    if (!tbody || !tbl || !empty) return;
+    const raw = Array.isArray(studentRows) ? studentRows : [];
+    if (!raw.length) {
+      tbl.style.display = "none";
+      empty.style.display = "block";
+      return;
+    }
+    empty.style.display = "none";
+    tbl.style.display = "table";
+
+    const maxCtf = Math.max(1, ...raw.map((r) => Number(r.ctf_score || 0)));
+    const enriched = raw.map((r) => {
+      const ctf = Number(r.ctf_score || 0);
+      const prog = Number(r.progress_pct || 0);
+      const att = Number(r.exam_attempt_count || 0);
+      const pass = Number(r.exam_pass_count || 0);
+      const passRate = att > 0 ? (pass / att) * 100 : 0;
+      const ctfNorm = (ctf / maxCtf) * 100;
+      const successScore = Math.round(prog * 0.45 + ctfNorm * 0.35 + passRate * 0.2);
+      return { ...r, successScore, passRate, ctf, prog, att, pass };
+    });
+    enriched.sort((a, b) =>
+      b.successScore - a.successScore ||
+      b.prog - a.prog ||
+      b.ctf - a.ctf ||
+      Number(b.id) - Number(a.id)
+    );
+
+    tbody.innerHTML = enriched
+      .map((r, i) => {
+        const rank = i + 1;
+        const rankCell = MEDALS[rank] ? `${MEDALS[rank]} ${rank}` : String(rank);
+        const examPassStr = r.att > 0 ? `${r.pass}/${r.att}` : "—";
+        const examAvg = Number(r.exam_avg_score || 0);
+        return `<tr>
+          <td style="text-align:center;font-family:var(--mono);font-weight:700;">${rankCell}</td>
+          <td><strong style="font-size:.88rem;">${escHtml(r.name || "—")}</strong></td>
+          <td style="font-size:.78rem;color:var(--text-2);">${escHtml(r.email || "")}</td>
+          <td style="text-align:right;font-family:var(--mono);font-weight:700;color:var(--red);">${r.successScore}</td>
+          <td style="text-align:right;font-family:var(--mono);">${r.prog}%</td>
+          <td style="text-align:right;font-family:var(--mono);">${r.ctf}</td>
+          <td style="text-align:right;font-family:var(--mono);">${Number(r.solve_count || 0)}</td>
+          <td style="text-align:right;font-family:var(--mono);">${Number(r.completed_modules || 0)}</td>
+          <td style="text-align:right;font-family:var(--mono);font-size:.78rem;">${examPassStr}</td>
+          <td style="text-align:right;font-family:var(--mono);font-size:.78rem;">${r.att > 0 ? examAvg : "—"}</td>
+        </tr>`;
+      })
+      .join("");
+  }
+
+  function formatLearningDt(iso) {
+    if (!iso) return "—";
+    try {
+      return new Date(iso).toLocaleString(resLoc(), {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "—";
+    }
+  }
+
+  function renderLearningActivityTables() {
+    const mc = learningActivity.module_completions || [];
+    const ev = learningActivity.lesson_events || [];
+
+    const mcTbl = document.getElementById("moduleCompletionTable");
+    const mcEmpty = document.getElementById("moduleCompletionEmpty");
+    const mcBody = document.getElementById("moduleCompletionTbody");
+    if (mcBody && mcEmpty && mcTbl) {
+      if (!mc.length) {
+        mcTbl.style.display = "none";
+        mcEmpty.style.display = "block";
+      } else {
+        mcEmpty.style.display = "none";
+        mcTbl.style.display = "table";
+        mcBody.innerHTML = mc
+          .map(
+            (r) => `
+          <tr>
+            <td>${escHtml(r.module_title || "—")}</td>
+            <td>${escHtml(r.user_name || "—")}</td>
+            <td style="font-size:.78rem;color:var(--text-2);">${escHtml(r.email || "")}</td>
+            <td style="font-family:var(--mono);font-size:.78rem;white-space:nowrap;" data-sort="${r.completed_at ? (new Date(r.completed_at).getTime() || 0) : 0}">${escHtml(formatLearningDt(r.completed_at))}</td>
+          </tr>`
+          )
+          .join("");
+      }
+    }
+
+    const modSel = document.getElementById("learningLogModuleFilter");
+    if (modSel) {
+      const byMod = new Map();
+      ev.forEach((e) => {
+        if (e.module_id != null && !byMod.has(e.module_id)) byMod.set(e.module_id, e.module_title || "—");
+      });
+      const sorted = [...byMod.entries()].sort((a, b) =>
+        String(a[1]).localeCompare(String(b[1]), resLoc().startsWith("tr") ? "tr" : "en", { sensitivity: "base" })
+      );
+      modSel.innerHTML =
+        `<option value="">${resT("admin.results.allModulesOpt") || "Tüm modüller"}</option>` +
+        sorted.map(([id, title]) => `<option value="${String(id)}">${escHtml(title)}</option>`).join("");
+    }
+
+    filterLearningLog();
+  }
+
+  function filterLearningLog() {
+    const ev = learningActivity.lesson_events || [];
+    const q = (document.getElementById("learningLogSearch")?.value || "").trim().toLowerCase();
+    const modId = document.getElementById("learningLogModuleFilter")?.value || "";
+    let list = ev;
+    if (modId) list = list.filter((e) => String(e.module_id) === modId);
+    if (q) {
+      list = list.filter((e) => {
+        const hay = [
+          e.module_title,
+          e.lesson_title,
+          e.user_name,
+          e.email,
+          String(e.lesson_index + 1),
+        ]
+          .join(" ")
+          .toLowerCase();
+        return hay.includes(q);
+      });
+    }
+
+    const tbl = document.getElementById("lessonLogTable");
+    const empty = document.getElementById("lessonLogEmpty");
+    const tbody = document.getElementById("lessonLogTbody");
+    if (!tbl || !empty || !tbody) return;
+    if (!list.length) {
+      tbl.style.display = "none";
+      empty.style.display = "block";
+      return;
+    }
+    empty.style.display = "none";
+    tbl.style.display = "table";
+    tbody.innerHTML = list
+      .map(
+        (e) => `
+      <tr>
+        <td style="font-family:var(--mono);font-size:.78rem;white-space:nowrap;" data-sort="${e.completed_at ? (new Date(e.completed_at).getTime() || 0) : 0}">${escHtml(formatLearningDt(e.completed_at))}</td>
+        <td>${escHtml(e.module_title || "—")}</td>
+        <td><span style="font-size:.72rem;color:var(--text-3);font-family:var(--mono);">${e.lesson_index + 1}.</span> ${escHtml(e.lesson_title || "—")}</td>
+        <td>${escHtml(e.user_name || "—")}</td>
+        <td style="font-size:.78rem;color:var(--text-2);">${escHtml(e.email || "")}</td>
+      </tr>`
+      )
+      .join("");
+  }
+
+  // Ortak, tırnak/backtick kaçışlı sürüm (admin-shared.js).
+  const escHtml = window.escapeHtml;
+
+  function destroyProgressCharts() {
+    if (moduleProgressChart) {
+      moduleProgressChart.destroy();
+      moduleProgressChart = null;
+    }
+    if (lessonDistChart) {
+      lessonDistChart.destroy();
+      lessonDistChart = null;
+    }
+  }
+
+  /** Tüm modüllerde aynı completed_lessons adımındaki öğrencileri id ile birleştirir (çift sayım yok). */
+  function buildAggregateLessonModule(modules) {
+    const mods = (modules || []).filter((m) => m.total_lessons > 0);
+    if (!mods.length) return null;
+    const maxTotal = Math.max(...mods.map((m) => m.total_lessons));
+    const atMap = new Map();
+
+    for (const m of mods) {
+      for (const b of m.lesson_buckets || []) {
+        const k = Number(b.at_lesson);
+        if (k < 0 || k > maxTotal) continue;
+        if (!atMap.has(k)) atMap.set(k, new Map());
+        const idMap = atMap.get(k);
+        for (const s of b.students || []) {
+          const uid = Number(s.id);
+          if (Number.isFinite(uid) && !idMap.has(uid)) idMap.set(uid, s);
+        }
+      }
+    }
+
+    const lesson_buckets = [];
+    for (let k = 0; k <= maxTotal; k++) {
+      const idMap = atMap.get(k);
+      const students = idMap ? [...idMap.values()] : [];
+      if (students.length > 0) {
+        lesson_buckets.push({
+          at_lesson: k,
+          student_count: students.length,
+          students,
+        });
+      }
+    }
+
+    return {
+      module_id: "__all__",
+      total_lessons: maxTotal,
+      lesson_titles: [],
+      lesson_buckets,
+      _isAggregate: true,
+    };
+  }
+
+  function fillLessonModuleSelect() {
+    const sel = document.getElementById("lessonDistModuleSelect");
+    if (!sel) return;
+    const prev = sel.value;
+    sel.innerHTML = "";
+    const allOpt = document.createElement("option");
+    allOpt.value = "__all__";
+    allOpt.textContent = resT("admin.results.selectAll") || "Tümü";
+    sel.appendChild(allOpt);
+    const mods = (progressStats.modules || []).filter((m) => m.total_lessons > 0);
+    mods.forEach((m) => {
+      const opt = document.createElement("option");
+      opt.value = String(m.module_id);
+      opt.textContent = m.title || resT("admin.results.moduleN", { id: m.module_id }) || `Modül ${m.module_id}`;
+      sel.appendChild(opt);
+    });
+    const allowed = new Set(["__all__", ...mods.map((m) => String(m.module_id))]);
+    sel.value = allowed.has(prev) ? prev : "__all__";
+  }
+
+  function renderModuleProgressSection() {
+    if (typeof Chart === "undefined") return;
+    if (moduleProgressChart) {
+      moduleProgressChart.destroy();
+      moduleProgressChart = null;
+    }
+    const mods = progressStats.modules || [];
+    const canvas = document.getElementById("moduleProgressChart");
+    const empty = document.getElementById("moduleProgressEmpty");
+    const tbl = document.getElementById("moduleProgressMiniTable");
+    const tbody = document.getElementById("moduleProgressMiniTbody");
+    if (!canvas || !empty || !tbl || !tbody) return;
+
+    const withLessons = mods.filter((m) => m.total_lessons > 0);
+    if (!withLessons.length) {
+      canvas.style.display = "none";
+      empty.style.display = "block";
+      tbl.style.display = "none";
+      fillLessonModuleSelect();
+      return;
+    }
+
+    empty.style.display = "none";
+    canvas.style.display = "block";
+
+    const labels = withLessons.map((m) =>
+      m.title && m.title.length > 36 ? `${m.title.slice(0, 34)}…` : m.title || "—"
+    );
+    const data = withLessons.map((m) => m.avg_pct);
+    moduleProgressChart = new Chart(canvas.getContext("2d"), {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: resT("admin.results.chartAvgCompletion") || "Ortalama tamamlama",
+            data,
+            backgroundColor: "rgba(199, 48, 80, 0.72)",
+            borderRadius: 4,
+          },
+        ],
+      },
+      options: {
+        indexAxis: "y",
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (ctx) => (resT("admin.results.tooltipAvgPct", { n: ctx.parsed.x }) || `Ortalama: ${ctx.parsed.x}%`),
+            },
+          },
+        },
+        scales: {
+          x: {
+            beginAtZero: true,
+            max: 100,
+            ticks: { callback: (v) => `${v}%` },
+          },
+        },
+      },
+    });
+
+    tbody.innerHTML = mods
+      .map(
+        (m) => `
+      <tr>
+        <td>${escHtml(m.title || "—")}</td>
+        <td style="text-align:right;font-family:var(--mono);">${m.total_lessons > 0 ? `${escHtml(String(m.avg_pct))}%` : "—"}</td>
+        <td style="text-align:right;font-family:var(--mono);">${escHtml(String(m.completed_count))}</td>
+        <td style="text-align:right;font-family:var(--mono);">${escHtml(String(m.opened_count))}</td>
+      </tr>`
+      )
+      .join("");
+    tbl.style.display = mods.length ? "table" : "none";
+
+    fillLessonModuleSelect();
+  }
+
+  function renderLessonDistDetailTable(m) {
+    const wrap = document.getElementById("lessonDistDetailWrap");
+    const tbl = document.getElementById("lessonDistDetailTable");
+    if (!wrap || !tbl || !m) return;
+    const total = m.total_lessons;
+    const titles = m.lesson_titles || [];
+    const buckets = [...(m.lesson_buckets || [])].sort((a, b) => a.at_lesson - b.at_lesson);
+    if (!buckets.length) {
+      wrap.style.display = "none";
+      return;
+    }
+    wrap.style.display = "block";
+    const rowLabel = (k) => {
+      if (k === 0) return resT("admin.results.lessonRow0") || "0 ders tamamlandı";
+      if (k >= total) return resT("admin.results.lessonRowAll", { n: total }) || `Tümü tamam (${total} ders)`;
+      const tit = titles[k - 1];
+      return tit
+        ? (resT("admin.results.lessonRowKTitle", { k, title: tit }) || `${k} ders · ${tit}`)
+        : (resT("admin.results.lessonRowK", { k }) || `${k} ders tamamlandı`);
+    };
+    tbl.innerHTML = `
+      <thead>
+        <tr>
+          <th>${resT("admin.results.detailThStep") || "Adım"}</th>
+          <th style="text-align:right;">${resT("admin.results.detailThStudents") || "Öğrenci"}</th>
+          <th>${resT("admin.results.detailThNames") || "İsimler"}</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${buckets
+          .map((b) => {
+            const k = Number(b.at_lesson);
+            const names = (b.students || []).map((s) => escHtml(s.name)).join(", ") || "—";
+            return `<tr>
+              <td style="font-size:.8rem;">${escHtml(rowLabel(k))}</td>
+              <td style="text-align:right;font-family:var(--mono);">${escHtml(String(b.student_count))}</td>
+              <td style="font-size:.78rem;color:var(--text-2);line-height:1.45;">${names}</td>
+            </tr>`;
+          })
+          .join("")}
+      </tbody>
+    `;
+  }
+
+  function renderLessonDistChart() {
+    if (typeof Chart === "undefined") return;
+    if (lessonDistChart) {
+      lessonDistChart.destroy();
+      lessonDistChart = null;
+    }
+    const sel = document.getElementById("lessonDistModuleSelect");
+    const canvas = document.getElementById("lessonDistChart");
+    const empty = document.getElementById("lessonDistEmpty");
+    const detailWrap = document.getElementById("lessonDistDetailWrap");
+    if (!sel || !canvas || !empty) return;
+
+    const rawVal = sel.value;
+    let m =
+      rawVal === "__all__"
+        ? buildAggregateLessonModule(progressStats.modules)
+        : (progressStats.modules || []).find((x) => Number(x.module_id) === Number(rawVal));
+
+    if (!m || m.total_lessons <= 0) {
+      canvas.style.display = "none";
+      empty.style.display = "block";
+      if (detailWrap) detailWrap.style.display = "none";
+      return;
+    }
+
+    const map = Object.fromEntries(
+      (m.lesson_buckets || []).map((b) => [Number(b.at_lesson), Number(b.student_count)])
+    );
+    const byAt = Object.fromEntries(
+      (m.lesson_buckets || []).map((b) => [Number(b.at_lesson), b.students || []])
+    );
+    const total = m.total_lessons;
+    const titles = m.lesson_titles || [];
+    const labels = [];
+    const data = [];
+    const fullLabels = [];
+    const studentsByIndex = [];
+    for (let k = 0; k <= total; k++) {
+      let short = k === 0 ? "0" : k === total ? (resT("admin.results.lessonShortDone") || "Tamam") : `${k}`;
+      let full = k === 0 ? (resT("admin.results.lessonFull0") || "0 ders") : k === total ? (resT("admin.results.lessonFullAll", { n: total }) || `Tüm dersler (${total})`) : (resT("admin.results.lessonKShort", { k }) || `${k} ders`);
+      if (k > 0 && k < total && titles[k - 1]) {
+        full = resT("admin.results.lessonRowKTitle", { k, title: titles[k - 1] }) || `${k} ders · ${titles[k - 1]}`;
+        short = `${k}`;
+      }
+      if (k === total) full = resT("admin.results.lessonModuleFull", { n: total }) || `Modül tamamı (${total} ders)`;
+      labels.push(short);
+      fullLabels.push(full);
+      data.push(map[k] ?? 0);
+      studentsByIndex.push(byAt[k] || []);
+    }
+
+    const sum = data.reduce((a, b) => a + b, 0);
+    if (sum === 0) {
+      canvas.style.display = "none";
+      empty.style.display = "block";
+      if (detailWrap) detailWrap.style.display = "none";
+      return;
+    }
+
+    empty.style.display = "none";
+    canvas.style.display = "block";
+    renderLessonDistDetailTable(m);
+
+    lessonDistChart = new Chart(canvas.getContext("2d"), {
+      type: "line",
+      data: {
+        labels,
+        datasets: [
+          {
+            label: m._isAggregate ? (resT("admin.results.chartAggLine") || "Benzersiz öğrenci (tüm modüller)") : (resT("admin.results.chartStudentCount") || "Öğrenci sayısı"),
+            data,
+            borderColor: "rgb(58, 93, 191)",
+            backgroundColor: "rgba(58, 93, 191, 0.12)",
+            fill: true,
+            tension: 0.25,
+            pointRadius: 4,
+            pointHoverRadius: 6,
+            borderWidth: 2,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: {
+          legend: { display: true, position: "top" },
+          tooltip: {
+            callbacks: {
+              title: (items) => (items[0] ? fullLabels[items[0].dataIndex] : ""),
+              label: (item) => resT("admin.results.tooltipNStudents", { n: item.raw }) || `${item.raw} öğrenci`,
+              afterBody: (items) => {
+                const i = items[0]?.dataIndex;
+                if (i == null) return [];
+                const studs = studentsByIndex[i] || [];
+                if (!studs.length) return [];
+                const max = 15;
+                const lines = studs.slice(0, max).map((s) => ` · ${s.name}`);
+                if (studs.length > max) lines.push(resT("admin.results.morePeople", { n: studs.length - max }) || ` … +${studs.length - max} kişi`);
+                return lines;
+              },
+            },
+          },
+        },
+        scales: {
+          y: { beginAtZero: true, ticks: { precision: 0 } },
+          x: { title: { display: true, text: resT("admin.results.axisLessonSteps") || "Tamamlanan ders sayısı (adım)" } },
+        },
+      },
+    });
+  }
+
+  function renderCtfSolverTable() {
+    const tbody = document.getElementById("ctfSolverTbody");
+    const tbl = document.getElementById("ctfSolverTable");
+    const emptyEl = document.getElementById("ctfSolverEmpty");
+    if (!tbody || !tbl || !emptyEl) return;
+    const list = Array.isArray(ctfChallenges) ? ctfChallenges : [];
+    if (!list.length) {
+      tbl.style.display = "none";
+      emptyEl.style.display = "block";
+      emptyEl.textContent = resT("admin.results.ctfEmptyList") || "Kayıtlı CTF görevi yok.";
+      return;
+    }
+    emptyEl.style.display = "none";
+    tbl.style.display = "table";
+    tbody.innerHTML = list
+      .map((ch) => {
+        const solvers = ch.solvers || [];
+        const solverCells = solvers.length
+          ? solvers
+              .map((s) => {
+                const dt = s.solved_at
+                  ? new Date(s.solved_at).toLocaleString(resLoc(), {
+                      day: "2-digit",
+                      month: "2-digit",
+                      year: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })
+                  : "—";
+                return `<div style="margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid var(--border);">
+                  <strong style="color:var(--text);">${escHtml(s.name)}</strong>
+                  <span style="color:var(--text-3);font-size:.74rem;">${escHtml(s.email || "")}</span><br>
+                  <span style="font-size:.72rem;color:var(--text-3);font-family:var(--mono);">${dt}</span>
+                </div>`;
+              })
+              .join("")
+          : `<span style="color:var(--text-3);">${resT("admin.results.noSolverYet") || "Henüz kimse çözmedi"}</span>`;
+        const meta = [ch.category, ch.difficulty].filter(Boolean).join(" · ");
+        return `<tr>
+          <td style="min-width:180px;vertical-align:top;">
+            ${escHtml(ch.title || "—")}
+            ${meta ? `<div style="font-size:.72rem;color:var(--text-3);margin-top:4px;">${escHtml(meta)}</div>` : ""}
+          </td>
+          <td style="text-align:right;font-family:var(--mono);vertical-align:top;">${escHtml(String(ch.points))}</td>
+          <td style="vertical-align:top;max-width:420px;">${solverCells}</td>
+        </tr>`;
+      })
+      .join("");
+  }
+
+  function renderExamTable() {
+    const tbody = document.getElementById("examResultsTbody");
+    const tbl = document.getElementById("examResultsTable");
+    const empty = document.getElementById("examResultsEmpty");
+    if (!tbody || !tbl || !empty) return;
+    const list = examAttempts || [];
+    if (!list.length) {
+      tbl.style.display = "none";
+      empty.style.display = "block";
+      return;
+    }
+    empty.style.display = "none";
+    tbl.style.display = "table";
+    tbody.innerHTML = list
+      .map((a) => {
+        const passed = a.passed === true || a.passed === "t" || a.passed === 1;
+        return `<tr>
+          <td style="font-family:var(--mono);font-size:.78rem;white-space:nowrap;" data-sort="${a.attempted_at ? (new Date(a.attempted_at).getTime() || 0) : 0}">${escHtml(formatLearningDt(a.attempted_at))}</td>
+          <td>${escHtml(a.module_title || "—")}</td>
+          <td>${escHtml(a.user_name || "—")}</td>
+          <td style="font-size:.78rem;color:var(--text-2);">${escHtml(a.email || "")}</td>
+          <td style="text-align:right;font-family:var(--mono);">${a.score != null ? escHtml(String(a.score)) : "—"}</td>
+          <td>${passed ? `<span style="color:var(--green);font-weight:600;">${resT("admin.results.examPass") || "Geçti"}</span>` : `<span style="color:var(--text-3);">${resT("admin.results.examFail") || "Kaldı"}</span>`}</td>
+        </tr>`;
+      })
+      .join("");
+  }
+
+  function renderGeneralExamTable() {
+    const tbody = document.getElementById("generalExamResultsTbody");
+    const tbl = document.getElementById("generalExamResultsTable");
+    const empty = document.getElementById("generalExamResultsEmpty");
+    if (!tbody || !tbl || !empty) return;
+    const list = generalExamAttempts || [];
+    if (!list.length) {
+      tbl.style.display = "none";
+      empty.style.display = "block";
+      return;
+    }
+    empty.style.display = "none";
+    tbl.style.display = "table";
+    tbody.innerHTML = list
+      .map((a) => {
+        const passed = a.passed === true || a.passed === "t" || a.passed === 1;
+        const viol = a.violations_count != null ? String(a.violations_count) : "—";
+        return `<tr>
+          <td style="font-family:var(--mono);font-size:.78rem;white-space:nowrap;">${escHtml(formatLearningDt(a.submitted_at))}</td>
+          <td>${escHtml(a.exam_title || "—")}</td>
+          <td>${escHtml(a.user_name || "—")}</td>
+          <td style="font-size:.78rem;color:var(--text-2);">${escHtml(a.email || "")}</td>
+          <td style="text-align:right;font-family:var(--mono);">${a.score != null ? escHtml(String(a.score)) : "—"}</td>
+          <td>${passed ? `<span style="color:var(--green);font-weight:600;">${resT("admin.results.examPass") || "Geçti"}</span>` : `<span style="color:var(--text-3);">${resT("admin.results.examFail") || "Kaldı"}</span>`}</td>
+          <td style="text-align:right;font-family:var(--mono);font-size:.78rem;">${escHtml(viol)}</td>
+        </tr>`;
+      })
+      .join("");
+  }
+
+  function showResultsTab(name) {
+    activeTab = name;
+    document.querySelectorAll(".results-tab-panel").forEach((p) => p.classList.toggle("active", p.dataset.tab === name));
+    document.querySelectorAll(".results-tab-btn").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+    requestAnimationFrame(() => {
+      if (name === "module") {
+        if (!tabRendered.module) {
+          tabRendered.module = true;
+          renderModuleProgressSection();
+        } else if (moduleProgressChart) {
+          moduleProgressChart.resize();
+        }
+      }
+      if (name === "lesson") {
+        if (!tabRendered.lesson) {
+          tabRendered.lesson = true;
+          fillLessonModuleSelect();
+          renderLessonDistChart();
+        } else if (lessonDistChart) {
+          lessonDistChart.resize();
+        }
+      }
+    });
+  }
+
+  async function reloadPage() {
+    destroyProgressCharts();
+    tabRendered = { module: false, lesson: false };
+    const [progRes, ctfRes, learnRes, examRes, genExamRes] = await Promise.all([
+      apiFetch("/leaderboard/progress-stats").catch(() => ({ modules: [] })),
+      apiFetch("/leaderboard/ctf-challenge-solvers").catch(() => ({ challenges: [] })),
+      apiFetch("/leaderboard/learning-activity").catch(() => ({ module_completions: [], lesson_events: [] })),
+      apiFetch("/leaderboard/exam-results").catch(() => ({ attempts: [] })),
+      apiFetch("/exams/attempts").catch(() => ({ attempts: [] })),
+    ]);
+
+    progressStats = progRes && Array.isArray(progRes.modules) ? progRes : { modules: [] };
+    ctfChallenges = Array.isArray(ctfRes?.challenges) ? ctfRes.challenges : [];
+    learningActivity = {
+      module_completions: Array.isArray(learnRes?.module_completions) ? learnRes.module_completions : [],
+      lesson_events: Array.isArray(learnRes?.lesson_events) ? learnRes.lesson_events : [],
+    };
+    examAttempts = Array.isArray(examRes?.attempts) ? examRes.attempts : [];
+    generalExamAttempts = Array.isArray(genExamRes?.attempts) ? genExamRes.attempts : [];
+
+    const studentsRes = await apiFetch("/students").catch(() => []);
+    studentRows = Array.isArray(studentsRes) ? studentsRes : [];
+
+    renderAllStudentsTable();
+    renderCtfSolverTable();
+    renderLearningActivityTables();
+    renderExamTable();
+    renderGeneralExamTable();
+    showResultsTab(activeTab);
+  }
+
+  if (window.location.hash === "#exam") {
+    activeTab = "exam";
+  }
+
+  reloadPage();
+</script>
+</body>
+</html>

@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — Leaderboard</title>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    .hero-card {
+      background:var(--bg-card);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      overflow:hidden;
+    }
+    .hero-head {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:10px;
+      padding:14px 16px;
+      border-bottom:1px solid var(--border);
+    }
+    .hero-title { font-size:.95rem; font-weight:700; color:var(--text); }
+    .hero-sub { font-size:.78rem; color:var(--text-3); margin-top:2px; }
+    .chip {
+      padding:4px 10px;
+      border:1px solid var(--border);
+      border-radius:999px;
+      font-size:.75rem;
+      color:var(--text-2);
+      background:transparent;
+      cursor:pointer;
+    }
+    .chip.active { background:var(--red); color:#fff; border-color:var(--red); }
+    .chart-wrap { position:relative; width:100%; height:360px; padding:12px 10px 10px; }
+    .rank-num { font-family:var(--mono); font-weight:700; font-size:.9rem; text-align:center; width:42px; }
+    .kpi-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; margin-bottom:10px; }
+    .kpi { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:12px 14px; }
+    .kpi-v { font-family:var(--mono); font-size:1.12rem; font-weight:800; color:var(--text); }
+    .kpi-l { font-size:.74rem; color:var(--text-3); margin-top:2px; }
+    .mini-bars { display:flex; flex-direction:column; gap:8px; }
+    .mini-bar-row { display:grid; grid-template-columns:96px 1fr 34px; gap:8px; align-items:center; }
+    .mini-bar-track { background:var(--border); height:8px; border-radius:999px; overflow:hidden; }
+    .mini-bar-fill { background:var(--red); height:100%; border-radius:999px; }
+    .lb-clickable { cursor:pointer; transition:background .15s; }
+    .lb-clickable:hover td { background:var(--bg-2); }
+    .solver-chip {
+      display:flex; align-items:center; justify-content:space-between; gap:8px;
+      padding:9px 10px; border:1px solid var(--border); border-radius:10px; background:var(--bg);
+      margin-bottom:8px;
+    }
+    .drawer-kpi-grid {
+      display:grid;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+      margin-bottom:12px;
+    }
+    .drawer-kpi {
+      border:1px solid var(--border);
+      border-radius:12px;
+      background:var(--bg);
+      padding:10px 12px;
+    }
+    .drawer-kpi-v {
+      font-family:var(--mono);
+      font-size:1.05rem;
+      font-weight:800;
+      color:var(--text);
+      line-height:1.2;
+    }
+    .drawer-kpi-l {
+      font-size:.72rem;
+      color:var(--text-3);
+      margin-top:3px;
+      text-transform:uppercase;
+      letter-spacing:.04em;
+    }
+    .drawer-date {
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+      border:1px dashed var(--border);
+      border-radius:10px;
+      background:var(--bg-card);
+      padding:9px 10px;
+      margin-bottom:8px;
+    }
+    .drawer-date-k { font-size:.74rem; color:var(--text-3); }
+    .drawer-date-v { font-family:var(--mono); font-size:.8rem; color:var(--text); font-weight:700; }
+    .drawer-date-r { font-size:.72rem; color:var(--text-3); }
+    @media (max-width:1100px){ .kpi-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); } }
+    @media (max-width:700px){ .kpi-grid{ grid-template-columns:1fr; } }
+
+    /* Podium (Top 3) */
+    .podium-card .card-header { border-bottom: 0; }
+    .podium-box {
+      display:flex;
+      align-items:flex-end;
+      justify-content:center;
+      gap:12px;
+      padding:10px 6px 6px;
+      min-height:140px;
+    }
+    .podium-slot {
+      flex:1;
+      min-width:0;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:8px;
+      padding:12px 10px;
+      border:1px solid var(--border);
+      border-radius:14px;
+      background:var(--bg);
+      cursor:pointer;
+      outline:none;
+      transition:transform .18s ease, border-color .18s ease, background .18s ease;
+      user-select:none;
+    }
+    .podium-slot:hover { transform: translateY(-3px); border-color: var(--border-2); }
+    .podium-slot:focus-visible {
+      box-shadow: 0 0 0 3px rgba(199,48,80,.22);
+      border-color: rgba(199,48,80,.7);
+    }
+    .podium-medal { font-size:1.35rem; line-height:1; }
+    .podium-avatar {
+      width:46px; height:46px;
+      border-radius: 999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-size:.72rem;
+      font-family:var(--mono);
+      font-weight:800;
+      color:#fff;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.15);
+    }
+    .podium-name {
+      font-size:.86rem;
+      font-weight:800;
+      color:var(--text);
+      text-align:center;
+      max-width: 160px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .podium-email {
+      font-size:.72rem;
+      color:var(--text-3);
+      text-align:center;
+      max-width: 200px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+    .podium-score {
+      font-family:var(--mono);
+      font-weight:900;
+      color:var(--red);
+      font-size:.98rem;
+      line-height:1;
+      margin-top:auto;
+    }
+    .podium-score-lbl{
+      font-size:.68rem;
+      color:var(--text-3);
+      font-weight:900;
+      margin-left:6px;
+      vertical-align:middle;
+      text-transform:uppercase;
+      letter-spacing:.02em;
+    }
+    .podium-1 { transform: translateY(-12px); border-color: rgba(199,48,80,.6); background: var(--bg-2); box-shadow: 0 10px 30px rgba(199,48,80,.18); }
+    .podium-2 { transform: translateY(-6px); border-color: rgba(58,93,191,.35); box-shadow: 0 8px 22px rgba(58,93,191,.12); }
+    .podium-3 { border-color: rgba(26,158,110,.35); box-shadow: 0 8px 22px rgba(26,158,110,.08); }
+
+    @media (max-width:700px){
+      .podium-box{ gap:8px; min-height:120px; }
+      .podium-slot{ padding:10px 8px; }
+      .podium-avatar{ width:42px; height:42px; }
+      .podium-name{ max-width:120px; }
+      .podium-email{ display:none; }
+      .podium-1, .podium-2, .podium-3 { transform: translateY(-6px); }
+    }
+  </style>
+</head>
+<body>
+<div class="admin-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+  <main class="admin-main">
+    <header class="topbar" id="topbar"></header>
+    <div class="page">
+      <div class="kpi-grid">
+        <div class="kpi"><div class="kpi-v" id="kpiStudents">—</div><div class="kpi-l" data-i18n="admin.lb.kpiStudents">Toplam öğrenci</div></div>
+        <div class="kpi"><div class="kpi-v" id="kpiTotalSolves">—</div><div class="kpi-l" data-i18n="admin.lb.kpiSolves">Toplam CTF çözümü</div></div>
+        <div class="kpi"><div class="kpi-v" id="kpiAvgScore">—</div><div class="kpi-l" data-i18n="admin.lb.kpiAvgCtf">Öğrenci başına ort. CTF puanı</div></div>
+        <div class="kpi"><div class="kpi-v" id="kpiActive7d">—</div><div class="kpi-l" data-i18n="admin.lb.kpiActive7d">Son 7 günde aktif çözen</div></div>
+      </div>
+
+      <div class="hero-card">
+        <div class="hero-head">
+          <div>
+            <div class="hero-title" data-i18n="admin.lb.heroTitle">Kümülatif skor zaman serisi (ilk 10)</div>
+            <div class="hero-sub" data-i18n="admin.lb.heroSub">Her öğrencinin toplam CTF puanının zamana göre birikimli değişimi</div>
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="chip active" data-range="all" onclick="setRange('all')" data-i18n="common.all">Tümü</button>
+            <button class="chip" data-range="7" onclick="setRange('7')" data-i18n="admin.lb.chip7">7 gün</button>
+            <button class="chip" data-range="30" onclick="setRange('30')" data-i18n="admin.lb.chip30">30 gün</button>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="timelineChart"></canvas></div>
+        <div id="chartEmpty" style="display:none;text-align:center;color:var(--text-3);padding:16px 0 18px;" data-i18n="admin.lb.chartEmpty">Çizim için yeterli çözüm verisi yok.</div>
+      </div>
+
+      <div class="card podium-card">
+        <div class="card-header">
+          <h3 data-i18n="admin.lb.podiumTitle">Podyum (ilk 3)</h3>
+        </div>
+        <div class="card-body" style="padding:0;">
+          <div id="podiumBox" class="podium-box">
+            <div class="spinner"></div>
+          </div>
+        </div>
+      </div>
+
+      <p style="font-size:.82rem;color:var(--text-3);margin:0 0 14px;line-height:1.5;">
+        <span data-i18n="admin.lb.hintBefore">CTF, modül, ders ve sınav sonuçlarının ayrıntılı raporları için</span>
+        <a href="admin-results.html" style="color:var(--red);font-weight:600;" data-i18n="admin.nav.results">Sonuçlar</a>
+        <span data-i18n="admin.lb.hintAfter">sayfasına gidin.</span>
+      </p>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 data-i18n="admin.lb.tableTitle">Sıralama tablosu</h3> 
+          <div class="search-box"><span class="search-icon">🔍</span><input type="text" id="searchInput" placeholder="İsim ara..." data-i18n-placeholder="admin.lb.searchPh" oninput="onSearch(this.value)"></div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:48px;" data-i18n="admin.lb.thRank">#</th>
+                <th data-i18n="admin.lb.thStudent">Öğrenci</th>
+                <th data-i18n="admin.lb.thCtf">CTF puanı</th>
+                <th data-i18n="admin.lb.thSolves">Çözüm</th>
+                <th data-i18n="admin.lb.thProgress">İlerleme</th>
+              </tr>
+            </thead>
+            <tbody id="lbBody"><tr><td colspan="5" style="text-align:center;padding:24px;"><div class="spinner"></div></td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="two-col">
+        <div class="col-main">
+          <div class="card">
+            <div class="card-header"><h3 data-i18n="admin.lb.cardScoreDist">Puan dağılımı</h3></div>
+            <div class="card-body"><div class="mini-bars" id="scoreDistBars"><div class="spinner"></div></div></div>
+          </div>
+        </div>
+        <div class="col-side">
+          <div class="card">
+            <div class="card-header"><h3 data-i18n="admin.lb.cardActivity">Aktivite özeti</h3></div>
+            <div class="card-body" id="activitySummary"><div class="spinner"></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="drawer-overlay" id="solverDrawerOverlay" onclick="closeSolverDrawer()"></div>
+<div class="drawer" id="solverDrawer" style="width:460px;">
+  <div class="drawer-header">
+    <div style="flex:1;min-width:0;">
+      <div style="font-size:.74rem;color:var(--text-3);font-family:var(--mono);" data-i18n="admin.lb.drawerKicker">Öğrenci CTF detayı</div>
+      <div style="font-size:1rem;font-weight:700;color:var(--text);" id="solverDrawerName">—</div>
+      <div style="font-size:.78rem;color:var(--text-3);" id="solverDrawerMeta">—</div>
+    </div>
+    <button class="drawer-close" onclick="closeSolverDrawer()">✕</button>
+  </div>
+  <div class="drawer-body">
+    <div class="drawer-kpi-grid">
+      <div class="drawer-kpi"><div class="drawer-kpi-v" id="solverDrawerScore">0</div><div class="drawer-kpi-l" data-i18n="admin.lb.drawerTotalPts">Toplam puan</div></div>
+      <div class="drawer-kpi"><div class="drawer-kpi-v" id="solverDrawerSolveCount">0</div><div class="drawer-kpi-l" data-i18n="admin.lb.drawerSolves">Çözüm</div></div>
+    </div>
+    <div class="drawer-date">
+      <div>
+        <div class="drawer-date-k" data-i18n="admin.lb.firstSolve">İlk çözüm</div>
+        <div class="drawer-date-v" id="solverDrawerFirst">—</div>
+      </div>
+      <div class="drawer-date-r" id="solverDrawerFirstRel">—</div>
+    </div>
+    <div class="drawer-date">
+      <div>
+        <div class="drawer-date-k" data-i18n="admin.lb.lastSolve">Son çözüm</div>
+        <div class="drawer-date-v" id="solverDrawerLast">—</div>
+      </div>
+      <div class="drawer-date-r" id="solverDrawerLastRel">—</div>
+    </div>
+    <div class="drawer-section-title" data-i18n="admin.lb.solvedTasks">Çözülen CTF görevleri</div>
+    <div id="solverDrawerList"></div>
+  </div>
+</div>
+
+<script src="theme-i18n.js"></script>
+<script src="admin-shared.js"></script>
+<!-- Chart.js yerel kopya (tedarik zinciri riski: CDN'den çalıştırılabilir kod çekilmiyor) -->
+<script src="chart.umd.min.js"></script>
+<script>
+  document.getElementById("sidebar").innerHTML = buildSidebar("leaderboard");
+  document.getElementById("topbar").innerHTML = buildTopbar(typeof t === "function" ? t("admin.nav.leaderboard") : "Liderlik Tablosu");
+  initTopbar(typeof t === "function" ? t("admin.nav.leaderboard") : "Liderlik Tablosu");
+  if (typeof t === "function") document.title = "SeCScop — " + t("admin.nav.leaderboard");
+
+  function lbLoc() {
+    return typeof getLang === "function" && getLang() === "en" ? "en-US" : "tr-TR";
+  }
+
+  const COLORS = ["#c73050","#3a5dbf","#1a9e6e","#d06820","#7c3aed","#0e7490","#be123c","#2563eb","#16a34a","#ea580c"];
+  const MEDALS = {1:"🥇",2:"🥈",3:"🥉"};
+  let rows = [];
+  let timeline = [];
+  let chart = null;
+  let activeRange = "all";
+
+  // Ortak, tırnak/backtick kaçışlı sürüm (admin-shared.js).
+  const escHtml = window.escapeHtml;
+
+  function renderExtraStats() {
+    const studentCount = rows.length;
+    const totalScore = rows.reduce((s, r) => s + Number(r.ctf_score || 0), 0);
+    const totalSolves = rows.reduce((s, r) => s + Number(r.solve_count || 0), 0);
+    const avgScore = studentCount ? Math.round(totalScore / studentCount) : 0;
+    const now = Date.now();
+    const active7 = new Set(
+      timeline.filter((row) => (now - new Date(row.solved_at).getTime()) <= 7 * 24 * 60 * 60 * 1000).map((row) => row.user_name)
+    ).size;
+
+    document.getElementById("kpiStudents").textContent = studentCount;
+    document.getElementById("kpiTotalSolves").textContent = totalSolves;
+    document.getElementById("kpiAvgScore").textContent = avgScore;
+    document.getElementById("kpiActive7d").textContent = active7;
+
+    const buckets = [
+      { label: "0-99", count: 0 },
+      { label: "100-299", count: 0 },
+      { label: "300-599", count: 0 },
+      { label: "600-999", count: 0 },
+      { label: "1000+", count: 0 },
+    ];
+    rows.forEach((r) => {
+      const sc = Number(r.ctf_score || 0);
+      if (sc < 100) buckets[0].count += 1;
+      else if (sc < 300) buckets[1].count += 1;
+      else if (sc < 600) buckets[2].count += 1;
+      else if (sc < 1000) buckets[3].count += 1;
+      else buckets[4].count += 1;
+    });
+    const maxCount = Math.max(1, ...buckets.map((b) => b.count));
+    document.getElementById("scoreDistBars").innerHTML = buckets.map((b) => `
+      <div class="mini-bar-row">
+        <div style="font-size:.78rem;color:var(--text-2);">${b.label}</div>
+        <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${Math.round((b.count / maxCount) * 100)}%"></div></div>
+        <div style="font-family:var(--mono);font-size:.76rem;color:var(--text-3);text-align:right;">${b.count}</div>
+      </div>
+    `).join("");
+
+    const loc = lbLoc();
+    const lastSolve = timeline.length
+      ? new Date([...timeline].sort((a, b) => new Date(b.solved_at) - new Date(a.solved_at))[0].solved_at).toLocaleString(loc)
+      : (typeof t === "function" ? t("admin.lb.none") : "Yok");
+    const mostSolves = [...rows].sort((a, b) => Number(b.solve_count || 0) - Number(a.solve_count || 0))[0];
+    const topProgress = [...rows].sort((a, b) => Number(b.progress_pct || 0) - Number(a.progress_pct || 0))[0];
+    const noneTxt = typeof t === "function" ? t("admin.lb.none") : "Yok";
+    const lblLast = typeof t === "function" ? t("admin.lb.activityLastSolve") : "Son çözüm:";
+    const lblMost = typeof t === "function" ? t("admin.lb.activityTopSolver") : "En çok çözen:";
+    const lblProg = typeof t === "function" ? t("admin.lb.activityTopProgress") : "En yüksek ilerleme:";
+    const lblTop3 = typeof t === "function" ? t("admin.lb.activityTop3Pts") : "İlk 3 toplam puan:";
+    document.getElementById("activitySummary").innerHTML = `
+      <div style="font-size:.82rem;color:var(--text-2);display:flex;flex-direction:column;gap:8px;">
+        <div><strong style="color:var(--text);">${lblLast}</strong> ${lastSolve}</div>
+        <div><strong style="color:var(--text);">${lblMost}</strong> ${mostSolves ? `${escapeHtml(mostSolves.name)} (${Number(mostSolves.solve_count || 0)})` : noneTxt}</div>
+        <div><strong style="color:var(--text);">${lblProg}</strong> ${topProgress ? `${escapeHtml(topProgress.name)} (%${Number(topProgress.progress_pct || 0)})` : noneTxt}</div>
+        <div><strong style="color:var(--text);">${lblTop3}</strong> ${rows.slice(0,3).reduce((s, r) => s + Number(r.ctf_score || 0), 0)}</div>
+      </div>
+    `;
+  }
+
+  function renderPodium(list) {
+    const box = document.getElementById("podiumBox");
+    if (!box) return;
+    const top3 = Array.isArray(list) ? list.slice(0, 3) : [];
+
+    if (!top3.length) {
+      box.innerHTML = `<div style="font-size:.82rem;color:var(--text-3);padding:10px 0;">${
+        typeof t === "function" ? t("admin.lb.dataMissing") : "Veri bulunamadı."
+      }</div>`;
+      return;
+    }
+
+    const [r1, r2, r3] = top3;
+    const ctfLbl = typeof t === "function" ? t("admin.lb.thCtf") : "CTF puanı";
+    const slot = (r, cls, pos) => `
+      <div
+        class="podium-slot ${cls}"
+        role="button"
+        tabindex="0"
+        onclick="openSolverDrawer(${Number(r.id)})"
+        onkeydown="if(event.key==='Enter' || event.key===' ') { event.preventDefault(); openSolverDrawer(${Number(r.id)}); }"
+      >
+        <div class="podium-medal">${MEDALS[pos] || pos}</div>
+        <div class="podium-avatar" style="background:${avatarColor(r.name)};">${initials(r.name)}</div>
+        <div class="podium-name">${escHtml(r.name)}</div>
+        <div class="podium-email">${escHtml(r.email || "")}</div>
+        <div class="podium-score">${Number(r.ctf_score || 0)}<span class="podium-score-lbl">${ctfLbl}</span></div>
+      </div>
+    `;
+
+    box.innerHTML = `
+      <div style="display:flex;align-items:flex-end;justify-content:center;gap:12px; width:100%;">
+        ${r2 ? slot(r2, "podium-2", 2) : ""}
+        ${r1 ? slot(r1, "podium-1", 1) : ""}
+        ${r3 ? slot(r3, "podium-3", 3) : ""}
+      </div>
+    `;
+  }
+
+  function normalizeStudents(raw) {
+    const list = (Array.isArray(raw) ? raw : []).map((r) => ({
+      ...r,
+      ctf_score: Number(r.ctf_score || 0),
+      solve_count: Number(r.solve_count || 0),
+      progress_pct: Number(r.progress_pct || 0),
+    }));
+    list.sort((a, b) => (b.ctf_score - a.ctf_score) || (b.progress_pct - a.progress_pct) || (Number(a.id) - Number(b.id)));
+    return list.map((r, i) => ({ ...r, rank: i + 1 }));
+  }
+
+  function setRange(range) {
+    activeRange = range;
+    document.querySelectorAll(".chip").forEach((b) => b.classList.toggle("active", b.dataset.range === range));
+    renderTimeline();
+  }
+
+  function renderTable(list) {
+    const body = document.getElementById("lbBody");
+    if (!list.length) {
+      body.innerHTML = `<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-3);">${typeof t === "function" ? t("admin.lb.tableEmpty") : "Kayıt yok."}</td></tr>`;
+      return;
+    }
+    body.innerHTML = list.map((r) => `
+      <tr class="lb-clickable" onclick="openSolverDrawer(${Number(r.id)})">
+        <td class="rank-num">${MEDALS[r.rank] || r.rank}</td>
+        <td>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <div class="avatar" style="background:${avatarColor(r.name)};color:#fff;">${escapeHtml(initials(r.name))}</div>
+            <div><strong style="font-size:.86rem;">${escapeHtml(r.name)}</strong><div style="font-size:.74rem;color:var(--text-3);">${escapeHtml(r.email || "")}</div></div>
+          </div>
+        </td>
+        <td><span style="font-family:var(--mono);font-weight:700;">${r.ctf_score}</span></td>
+        <td><span style="font-family:var(--mono);">${r.solve_count || 0}</span></td>
+        <td><div style="display:flex;align-items:center;gap:8px;"><div class="progress-bar" style="width:80px;"><div class="progress-fill" style="width:${r.progress_pct}%;"></div></div><span style="font-size:.78rem;">${r.progress_pct}%</span></div></td>
+      </tr>
+    `).join("");
+  }
+
+  function openSolverDrawer(userId) {
+    const student = rows.find((r) => Number(r.id) === Number(userId));
+    const solves = [...timeline]
+      .filter((t) => Number(t.user_id) === Number(userId))
+      .sort((a, b) => new Date(b.solved_at) - new Date(a.solved_at));
+    if (!student) return;
+
+    document.getElementById("solverDrawerName").textContent = student.name;
+    document.getElementById("solverDrawerMeta").textContent = student.email || "";
+    document.getElementById("solverDrawerScore").textContent = Number(student.ctf_score || 0).toLocaleString(lbLoc());
+    document.getElementById("solverDrawerSolveCount").textContent = solves.length;
+    const firstDate = solves.length ? new Date(solves[solves.length - 1].solved_at) : null;
+    const lastDate = solves.length ? new Date(solves[0].solved_at) : null;
+    const dloc = lbLoc();
+    document.getElementById("solverDrawerFirst").textContent = firstDate
+      ? firstDate.toLocaleDateString(dloc, { day:"2-digit", month:"2-digit", year:"numeric" })
+      : "—";
+    document.getElementById("solverDrawerLast").textContent = lastDate
+      ? lastDate.toLocaleDateString(dloc, { day:"2-digit", month:"2-digit", year:"numeric" })
+      : "—";
+    document.getElementById("solverDrawerFirstRel").textContent = firstDate ? relativeTime(firstDate.toISOString()) : "—";
+    document.getElementById("solverDrawerLastRel").textContent = lastDate ? relativeTime(lastDate.toISOString()) : "—";
+
+    const list = document.getElementById("solverDrawerList");
+    list.innerHTML = solves.length ? solves.map((s, idx) => `
+      <div class="solver-chip">
+        <div style="min-width:0;flex:1;">
+          <div style="font-size:.83rem;color:var(--text);font-weight:600;">#${idx + 1} ${escapeHtml(s.challenge_title || (typeof t === "function" ? t("admin.lb.ctfFallback") : "CTF görevi"))}</div>
+          <div style="font-size:.74rem;color:var(--text-3);margin-top:1px;">${new Date(s.solved_at).toLocaleString(lbLoc())}</div>
+        </div>
+        <div style="font-family:var(--mono);font-size:.8rem;color:var(--green);font-weight:700;">+${Number(s.points || 0)}</div>
+      </div>
+    `).join("") : `<div style="font-size:.82rem;color:var(--text-3);padding:10px 0;">${typeof t === "function" ? t("admin.lb.noSolvesYet") : "Bu öğrenci henüz CTF çözmemiş."}</div>`;
+
+    document.getElementById("solverDrawerOverlay").classList.add("open");
+    document.getElementById("solverDrawer").classList.add("open");
+  }
+
+  function closeSolverDrawer() {
+    document.getElementById("solverDrawerOverlay").classList.remove("open");
+    document.getElementById("solverDrawer").classList.remove("open");
+  }
+
+  function renderTimeline() {
+    const canvas = document.getElementById("timelineChart");
+    const empty = document.getElementById("chartEmpty");
+    if (chart) { chart.destroy(); chart = null; }
+    if (typeof Chart === "undefined") {
+      canvas.style.display = "none";
+      empty.textContent = typeof t === "function" ? t("admin.lb.chartLibFail") : "Grafik kütüphanesi yüklenemedi.";
+      empty.style.display = "block";
+      return;
+    }
+
+    let data = Array.isArray(timeline) ? [...timeline] : [];
+    if (activeRange !== "all") {
+      const days = Number(activeRange);
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - days);
+      data = data.filter((x) => new Date(x.solved_at) >= cutoff);
+    }
+    if (!data.length) {
+      canvas.style.display = "none";
+      empty.style.display = "block";
+      return;
+    }
+
+    const topNames = new Set(rows.slice(0, 10).map((r) => r.name));
+    data = data.filter((x) => topNames.has(x.user_name));
+    if (!data.length) {
+      canvas.style.display = "none";
+      empty.style.display = "block";
+      return;
+    }
+
+    data.sort((a, b) => new Date(a.solved_at) - new Date(b.solved_at));
+    const allTimes = [...new Set(data.map((x) => x.solved_at))].sort();
+    const tloc = lbLoc();
+    const labels = allTimes.map((iso) => new Date(iso).toLocaleString(tloc, {
+      day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit",
+    }));
+
+    const datasets = rows
+      .slice(0, 10)
+      .map((r, idx) => {
+        const solveMap = {};
+        data.filter((x) => x.user_name === r.name).forEach((x) => {
+          solveMap[x.solved_at] = (solveMap[x.solved_at] || 0) + Number(x.points || 0);
+        });
+        let cum = 0;
+        const values = allTimes.map((t) => {
+          cum += solveMap[t] || 0;
+          return cum;
+        });
+        const hasAny = values.some((v) => v > 0);
+        if (!hasAny) return null;
+        return {
+          label: r.name,
+          data: values,
+          borderColor: COLORS[idx % COLORS.length],
+          backgroundColor: "transparent",
+          borderWidth: 2,
+          pointRadius: 2,
+          tension: 0.2,
+        };
+      })
+      .filter(Boolean);
+
+    if (!datasets.length) {
+      canvas.style.display = "none";
+      empty.style.display = "block";
+      return;
+    }
+
+    empty.style.display = "none";
+    canvas.style.display = "block";
+    chart = new Chart(canvas.getContext("2d"), {
+      type: "line",
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: "index", intersect: false },
+        plugins: { legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 10 } } } },
+        scales: {
+          x: { ticks: { maxTicksLimit: 10 } },
+          y: { beginAtZero: true, ticks: { callback: (v) => `${v} ${typeof t === "function" ? t("admin.lb.chartPtsSuffix") : "pt"}` } },
+        },
+      },
+    });
+  }
+
+  function onSearch(q) {
+    const s = (q || "").toLowerCase().trim();
+    const list = s ? rows.filter((r) => r.name.toLowerCase().includes(s) || r.email.toLowerCase().includes(s)) : rows;
+    renderTable(list);
+  }
+
+  async function reloadPage() {
+    const [studentRows, tlRows] = await Promise.all([
+      apiFetch("/students"),
+      apiFetch("/leaderboard/timeline"),
+    ]);
+
+    if (!Array.isArray(studentRows) || !studentRows.length) {
+      document.getElementById("lbBody").innerHTML = `<tr><td colspan="5" style="text-align:center;padding:24px;color:var(--red);">${typeof t === "function" ? t("admin.lb.dataMissing") : "Veri bulunamadı."}</td></tr>`;
+      document.getElementById("chartEmpty").style.display = "block";
+      document.getElementById("timelineChart").style.display = "none";
+      rows = [];
+      timeline = Array.isArray(tlRows) ? tlRows : [];
+      renderExtraStats();
+      return;
+    }
+    rows = normalizeStudents(studentRows);
+    timeline = Array.isArray(tlRows) ? tlRows : [];
+    renderTable(rows);
+    renderTimeline();
+    renderExtraStats();
+    renderPodium(rows);
+  }
+
+  reloadPage();
+</script>
+</body>
+</html>

@@ -1,0 +1,681 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — Students</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+<div class="admin-layout">
+
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <main class="admin-main">
+    <header class="topbar" id="topbar"></header>
+
+    <div class="page">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div id="studentPageCount" style="font-size:.9rem;color:var(--text-2);"></div>
+        <button type="button" class="btn btn-primary" onclick="openAddStudent()" data-i18n="admin.students.addBtn">+ Öğrenci Ekle</button>
+      </div>
+
+      <div class="grid-4" id="studentStatsRow">
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--blue-light);color:var(--blue);">🎓</div>
+          <div class="stat-info">
+            <div class="stat-value" id="statStudentTotal"><div class="spinner"></div></div>
+            <div class="stat-label" data-i18n="admin.students.statTotal">Toplam öğrenci</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--green-light);color:var(--green);">✅</div>
+          <div class="stat-info">
+            <div class="stat-value" id="statStudentAvg"><div class="spinner"></div></div>
+            <div class="stat-label" data-i18n="admin.students.statAvg">Ort. ilerleme</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--orange-light);color:var(--orange);">📝</div>
+          <div class="stat-info">
+            <div class="stat-value" id="statStudentLabs"><div class="spinner"></div></div>
+            <div class="stat-label" data-i18n="admin.students.statLabs">Tamamlanan lab</div>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon" style="background:var(--red-light);color:var(--red);">🚩</div>
+          <div class="stat-info">
+            <div class="stat-value" id="statStudentCtf"><div class="spinner"></div></div>
+            <div class="stat-label" data-i18n="admin.students.statCtf">Toplam CTF puanı</div>
+          </div>
+        </div>
+      </div>
+
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div class="filter-tabs" id="filterTabs">
+          <button class="filter-tab active" data-filter="all"   onclick="setFilter('all')" data-i18n="admin.students.filterAll">Tümü</button>
+          <button class="filter-tab"        data-filter="leader" onclick="setFilter('leader')" data-i18n="admin.students.filterLeader">★ Lider</button>
+          <button class="filter-tab"        data-filter="active" onclick="setFilter('active')" data-i18n="admin.students.filterActive">Aktif</button>
+          <button class="filter-tab"        data-filter="slow"   onclick="setFilter('slow')" data-i18n="admin.students.filterSlow">Yavaş</button>
+          <button class="filter-tab"        data-filter="passive" onclick="setFilter('passive')" data-i18n="admin.students.filterPassive">Pasif</button>
+        </div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="exportStudentsExcel(false)" data-i18n="admin.students.exportCsvInfo" data-i18n-title="admin.students.exportCsvInfoTitle">📊 CSV (bilgi)</button>
+          <button type="button" class="btn btn-ghost btn-sm" onclick="exportStudentsExcel(true)" data-i18n="admin.students.exportExcelPwd" data-i18n-title="admin.students.exportExcelPwdTitle">📊 Excel + şifreler</button>
+        </div>
+      </div>
+
+      <!-- Students table -->
+      <div class="card">
+        <div class="card-header">
+          <h3><span data-i18n="admin.students.tableTitle">Öğrenciler</span> <span class="badge badge-gray" id="studentCount"></span></h3>
+          <div class="search-box" style="width:200px;">
+            <span class="search-icon">🔍</span>
+            <input type="text" id="searchInput" placeholder="İsim veya e-posta…" data-i18n-placeholder="admin.students.searchPh" oninput="onSearch(this.value)">
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th data-i18n="admin.students.thStudent">Öğrenci</th>
+                <th data-i18n="admin.students.thProgress">İlerleme</th>
+                <th data-i18n="admin.students.thCtf">CTF Puanı</th>
+                <th data-i18n="admin.students.thLab">Lab</th>
+                <th data-i18n="admin.students.thJoined">Kayıt Tarihi</th>
+                <th data-i18n="admin.students.thLastSeen">Son Görülme</th>
+                <th data-i18n="admin.students.thStatus">Durum</th>
+                <th style="width:90px;"></th>
+              </tr>
+            </thead>
+            <tbody id="studentsTable">
+              <tr><td colspan="8" style="text-align:center;padding:32px;"><div class="spinner"></div></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- Modal: Öğrenci Ekle -->
+<div class="modal-overlay" id="addStudentModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 data-i18n="admin.students.modalAddTitle">Yeni Öğrenci Ekle</h3>
+      <button class="modal-close" onclick="closeModal('addStudentModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label data-i18n="admin.students.labelName">Ad Soyad</label><input type="text" id="newName" data-i18n-placeholder="admin.students.phName" placeholder="Ali Kaya"></div>
+      <div class="field"><label data-i18n="admin.students.labelEmail">E-posta</label><input type="email" id="newEmail" data-i18n-placeholder="admin.students.phEmail" placeholder="ornek@secscop.com"></div>
+      <div class="field">
+        <label data-i18n="admin.students.labelPassword">Şifre</label>
+        <div style="display:flex;gap:8px;align-items:stretch;flex-wrap:wrap;">
+          <input type="password" id="newPassword" data-i18n-placeholder="admin.students.phPassword" placeholder="En az 10 karakter (harf + rakam) veya rastgele" style="flex:1;min-width:160px;">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="fillNewStudentRandomPassword()" data-i18n="admin.students.btnRandomPwd">🔑 Rastgele</button>
+        </div>
+        <div style="font-size:.72rem;color:var(--text-3);margin-top:6px;" data-i18n="admin.students.randomPwdHint">Rastgele: 12 karakter, harf+rakam+sembol</div>
+      </div>
+      <div id="addStudentErr" class="badge badge-red" style="display:none;padding:8px;border-radius:8px;font-size:.82rem;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addStudentModal')" data-i18n="common.cancel">İptal</button>
+      <button class="btn btn-primary" id="addStudentBtn" onclick="submitAddStudent()" data-i18n="common.add">Ekle</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Sil Onay -->
+<div class="modal-overlay" id="deleteModal">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-header">
+      <h3 data-i18n="admin.students.modalDelTitle">Öğrenciyi Sil</h3>
+      <button class="modal-close" onclick="closeModal('deleteModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="delStudentMsg" style="font-size:.9rem;color:var(--text-2);"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('deleteModal')" data-i18n="common.cancel">İptal</button>
+      <button class="btn btn-danger" id="confirmDelBtn" onclick="confirmDelete()" data-i18n="common.yesDelete">Evet, Sil</button>
+    </div>
+  </div>
+</div>
+
+<!-- Drawer: Öğrenci Detay -->
+<div class="drawer-overlay" id="drawerOverlay" onclick="closeDrawer()"></div>
+<div class="drawer student-drawer" id="studentDrawer">
+  <div class="drawer-header">
+    <div class="avatar" id="drawerAvatar" style="color:#fff;flex-shrink:0;">—</div>
+    <div class="student-drawer-head-text">
+      <div class="student-drawer-kicker" data-i18n="admin.students.drawerKicker">Öğrenci profili</div>
+      <div class="student-drawer-title" id="drawerName">—</div>
+      <div class="student-drawer-email" id="drawerEmail">—</div>
+      <div style="font-size:.74rem;color:var(--text-3);margin-top:4px;" id="drawerSeen">—</div>
+    </div>
+    <button type="button" class="drawer-close" onclick="closeDrawer()" data-i18n-title="common.close" aria-label="Kapat">✕</button>
+  </div>
+
+  <div class="student-drawer-scroll">
+    <div class="drawer-stat-grid" id="drawerStatGrid">
+      <div class="drawer-stat-pill">
+        <div class="ico">📊</div>
+        <div class="lbl" data-i18n="admin.students.drawerLblProgress">İlerleme</div>
+        <div class="val" id="drawerPct">—</div>
+        <div class="sub" data-i18n="admin.students.drawerSubGeneral">genel</div>
+      </div>
+      <div class="drawer-stat-pill">
+        <div class="ico">🚩</div>
+        <div class="lbl" data-i18n="admin.students.drawerLblCtf">CTF</div>
+        <div class="val" id="drawerScore">—</div>
+        <div class="sub" data-i18n="admin.students.drawerSubPoints">puan</div>
+      </div>
+      <div class="drawer-stat-pill">
+        <div class="ico">📝</div>
+        <div class="lbl" data-i18n="admin.students.drawerLblLab">Lab</div>
+        <div class="val" id="drawerLabs">—</div>
+        <div class="sub" data-i18n="admin.students.drawerSubLessons">tamamlanan ders</div>
+      </div>
+      <div class="drawer-stat-pill">
+        <div class="ico">📅</div>
+        <div class="lbl" data-i18n="admin.students.drawerLblJoined">Kayıt</div>
+        <div class="val" id="drawerJoined" style="font-size:.78rem;font-weight:700;line-height:1.25;word-break:break-word;">—</div>
+        <div class="sub" data-i18n="admin.students.drawerSubDate">tarih</div>
+      </div>
+    </div>
+
+    <div class="student-drawer-section">
+      <div class="drawer-section-title"><span>📚</span> <span data-i18n="admin.students.drawerModules">Modül ilerlemeleri</span></div>
+      <div id="drawerModules"></div>
+    </div>
+    <div class="student-drawer-section">
+      <div class="drawer-section-title"><span>🏆</span> <span data-i18n="admin.students.drawerCtf">Çözülen CTF görevleri</span></div>
+      <div id="drawerCtf"></div>
+    </div>
+    <div class="student-drawer-section">
+      <div class="drawer-section-title"><span>🧪</span> <span data-i18n="admin.students.drawerExams">Sınav geçmişi</span></div>
+      <div id="drawerExams"></div>
+    </div>
+
+    <div class="student-drawer-card">
+      <h4 data-i18n="admin.students.pwdCardTitle">Şifre güncelle</h4>
+      <p style="font-size:.78rem;color:var(--text-3);margin:0 0 12px;line-height:1.45;" data-i18n="admin.students.pwdCardHint">Öğrenci yeni şifre ile giriş yapar (min. 6 karakter).</p>
+      <div class="field"><label data-i18n="admin.students.labelNewPwd">Yeni şifre</label>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <input type="password" id="pwdNew1" autocomplete="new-password" data-i18n-placeholder="admin.students.phPwdDots" placeholder="••••••" style="flex:1;min-width:140px;">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="fillDrawerRandomPassword()" data-i18n="admin.students.btnRandomPwd">🔑 Rastgele</button>
+        </div>
+      </div>
+      <div class="field"><label data-i18n="admin.students.labelNewPwd2">Yeni şifre (tekrar)</label><input type="password" id="pwdNew2" autocomplete="new-password" data-i18n-placeholder="admin.students.phPwdDots" placeholder="••••••"></div>
+      <div id="pwdErr" class="badge badge-red" style="display:none;padding:8px;border-radius:8px;font-size:.82rem;margin-bottom:8px;"></div>
+      <button type="button" class="btn btn-primary btn-sm" id="pwdSaveBtn" onclick="submitPasswordChange()" data-i18n="admin.students.btnSavePwd">Şifreyi kaydet</button>
+    </div>
+  </div>
+
+  <div class="student-drawer-footer">
+    <div class="student-drawer-quick">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="exportStudentsExcel(false)" data-i18n="admin.students.footerCsv">📄 CSV indir</button>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="exportStudentsExcel(true)" data-i18n="admin.students.footerCsvPwd">📄 CSV + şifreler</button>
+    </div>
+    <button type="button" class="btn btn-danger" style="width:100%;" onclick="askDeleteFromDrawer()" data-i18n="admin.students.footerDelete">🗑 Öğrenciyi sil</button>
+  </div>
+</div>
+
+<script src="theme-i18n.js"></script>
+<script src="admin-shared.js"></script>
+<script>
+  document.getElementById("sidebar").innerHTML = buildSidebar("students");
+  document.getElementById("topbar").innerHTML  = buildTopbar(typeof t === "function" ? t("admin.nav.students") : "Öğrenciler");
+  initTopbar(typeof t === "function" ? t("admin.nav.students") : "Öğrenciler");
+  if (typeof t === "function") document.title = "SeCScop — " + t("admin.nav.students");
+  setupModalOverlayClose();
+
+  let allStudents = [], activeFilter = "all", deleteTargetId = null, drawerStudentId = null, totalSystemLessons = 0, leaderStudentId = null;
+
+  function calcLessonPct(s) {
+    return totalSystemLessons > 0
+      ? Math.round((Number(s.completed_lessons || 0) / totalSystemLessons) * 100)
+      : Number(s.progress_pct || 0);
+  }
+
+  function calcLeaderScore(s) {
+    const lessonPct = calcLessonPct(s); // 0..100
+    const ctfScore = Number(s.ctf_score || 0);
+    const examPassCount = Number(s.exam_pass_count || 0);
+    const examAttemptCount = Number(s.exam_attempt_count || 0);
+    const examAvgScore = Number(s.exam_avg_score || 0);
+    const examPassRate = examAttemptCount > 0 ? Math.round((examPassCount / examAttemptCount) * 100) : 0;
+    // Weighted composite: CTF + lesson completion + exam performance
+    return (ctfScore * 0.5) + (lessonPct * 2.5) + (examAvgScore * 2.0) + (examPassRate * 1.5);
+  }
+
+  function recomputeLeader() {
+    if (!Array.isArray(allStudents) || !allStudents.length) {
+      leaderStudentId = null;
+      return;
+    }
+    const sorted = [...allStudents].sort((a, b) => {
+      const sb = calcLeaderScore(b);
+      const sa = calcLeaderScore(a);
+      if (sb !== sa) return sb - sa;
+      const ctfDiff = Number(b.ctf_score || 0) - Number(a.ctf_score || 0);
+      if (ctfDiff !== 0) return ctfDiff;
+      return Number(a.id) - Number(b.id);
+    });
+    leaderStudentId = Number(sorted[0].id);
+  }
+
+  function updateStudentStats() {
+    const list = Array.isArray(allStudents) ? allStudents : [];
+    const n = list.length;
+    const avg = n ? Math.round(list.reduce((s, x) => s + (Number(x.progress_pct) || 0), 0) / n) : 0;
+    const labs = list.reduce((s, x) => s + (Number(x.completed_lessons) || 0), 0);
+    const ctf = list.reduce((s, x) => s + (Number(x.ctf_score) || 0), 0);
+    const loc = typeof getLang === "function" && getLang() === "en" ? "en-US" : "tr-TR";
+    document.getElementById("studentPageCount").textContent =
+      typeof t === "function" ? t("admin.students.countN", { n }) : `${n} öğrenci`;
+    document.getElementById("statStudentTotal").textContent = String(n);
+    document.getElementById("statStudentAvg").textContent = `${avg}%`;
+    document.getElementById("statStudentLabs").textContent = labs.toLocaleString(loc);
+    document.getElementById("statStudentCtf").textContent = ctf.toLocaleString(loc);
+  }
+
+  // ── Load ───────────────────────────────────────────
+  async function reloadPage() {
+    const [rawStudents, rawModules] = await Promise.all([
+      apiFetch("/students"),
+      apiFetch("/modules"),
+    ]);
+    allStudents = Array.isArray(rawStudents) ? rawStudents : [];
+    totalSystemLessons = Array.isArray(rawModules)
+      ? rawModules.reduce((s, m) => s + Number(m.total_lessons || 0), 0)
+      : 0;
+    recomputeLeader();
+    updateStudentStats();
+    updateFilterTabCounts();
+    renderTable(applyFilter(activeFilter));
+  }
+
+  function updateFilterTabCounts() {
+    const counts = {
+      all: allStudents.length,
+      leader: applyFilter("leader").length,
+      active: applyFilter("active").length,
+      slow: applyFilter("slow").length,
+      passive: applyFilter("passive").length,
+    };
+    document.querySelectorAll(".filter-tab").forEach((btn) => {
+      const key = btn.dataset.filter;
+      const base = typeof t === "function"
+        ? (key === "all" ? t("admin.students.filterAll")
+          : key === "leader" ? t("admin.students.filterLeader")
+          : key === "active" ? t("admin.students.filterActive")
+          : key === "slow" ? t("admin.students.filterSlow")
+          : t("admin.students.filterPassive"))
+        : (key === "all" ? "Tümü" : key === "leader" ? "★ Lider" : key === "active" ? "Aktif" : key === "slow" ? "Yavaş" : "Pasif");
+      btn.textContent = `${base} (${counts[key] ?? 0})`;
+    });
+  }
+
+  function applyFilter(f) {
+    return allStudents.filter(s => {
+      const pct = calcLessonPct(s);
+      const score = Number(s.ctf_score || 0);
+      const seenMs = s.last_seen_at ? (Date.now() - new Date(s.last_seen_at).getTime()) : Number.POSITIVE_INFINITY;
+      const seenWithin24h = seenMs <= 24 * 60 * 60 * 1000;
+      const seenWithin7d = seenMs <= 7 * 24 * 60 * 60 * 1000;
+      const isOnline = !!s.is_online;
+
+      if (f === "leader")  return Number(s.id) === Number(leaderStudentId);
+      if (f === "active")  return (isOnline || seenWithin24h) && (pct >= 10 || score > 0);
+      if (f === "slow")    return pct > 0 && pct < 40 && seenWithin7d && !isOnline;
+      if (f === "passive") return pct === 0 || !seenWithin7d;
+      return true;
+    });
+  }
+
+  function setFilter(f) {
+    activeFilter = f;
+    document.querySelectorAll(".filter-tab").forEach(t => t.classList.toggle("active", t.dataset.filter === f));
+    const q = document.getElementById("searchInput").value;
+    const base = applyFilter(f);
+    renderTable(q ? base.filter(s => s.name.toLowerCase().includes(q.toLowerCase()) || s.email.toLowerCase().includes(q.toLowerCase())) : base);
+  }
+
+  function onSearch(q) {
+    const base = applyFilter(activeFilter);
+    renderTable(q ? base.filter(s => s.name.toLowerCase().includes(q.toLowerCase()) || s.email.toLowerCase().includes(q.toLowerCase())) : base);
+  }
+
+  function renderTable(rows) {
+    document.getElementById("studentCount").textContent =
+      typeof t === "function" ? t("admin.students.countN", { n: rows.length }) : `${rows.length} öğrenci`;
+    const tbody = document.getElementById("studentsTable");
+    if (!rows.length) {
+      tbody.innerHTML = `<tr><td colspan="8"><div class="empty-state"><span class="empty-icon">🎓</span><p>${typeof t === "function" ? t("admin.students.emptyFilter") : "Bu filtreye uygun öğrenci bulunamadı."}</p></div></td></tr>`;
+      return;
+    }
+    tbody.innerHTML = rows.map(s => {
+      const pct = calcLessonPct(s);
+      const bg  = avatarColor(s.name);
+      const online = !!s.is_online;
+      const isLeader = Number(s.id) === Number(leaderStudentId);
+      const createdTs = s.created_at ? (new Date(s.created_at).getTime() || 0) : 0;
+      const lastSeenTs = s.last_seen_at ? (new Date(s.last_seen_at).getTime() || 0) : 0;
+      const seenTxt = s.last_seen_at ? relativeTime(s.last_seen_at) : (typeof t === "function" ? t("admin.students.neverLogin") : "Hiç giriş yok");
+      const onlineLbl = typeof t === "function" ? t("admin.students.online") : "● Çevrim içi";
+      const seenHtml = online
+        ? `<span style="display:inline-flex;align-items:center;gap:6px;color:var(--green);font-size:.78rem;font-weight:700;">${onlineLbl}</span>`
+        : `<span style="font-size:.78rem;color:var(--text-3);">${seenTxt}</span>`;
+      const leaderLbl = typeof t === "function" ? t("admin.status.leader") : "★ Lider";
+      const statusHtml = isLeader
+        ? `<span class="badge badge-yellow">${leaderLbl}</span>`
+        : statusBadge(pct);
+      return `<tr>
+        <td>
+          <div class="student-info">
+            <div class="avatar" style="background:${bg};color:#fff;cursor:pointer;" onclick="openDrawer(${Number(s.id)})">${escapeHtml(initials(s.name))}</div>
+            <div>
+              <strong style="cursor:pointer;" onclick="openDrawer(${Number(s.id)})">${escapeHtml(s.name)}</strong>
+              <div style="font-size:.75rem;color:var(--text-3);">${escapeHtml(s.email)}</div>
+            </div>
+          </div>
+        </td>
+        <td>
+          <div style="display:flex;align-items:center;gap:8px;">
+            <div class="progress-bar" style="width:84px;"><div class="progress-fill" style="width:${pct}%;"></div></div>
+            <span style="font-size:.8rem;color:var(--text-2);">${pct}%</span>
+          </div>
+          <div style="font-size:.72rem;color:var(--text-3);margin-top:4px;">${typeof t === "function" ? t("admin.students.lessonsPair", { done: Number(s.completed_lessons || 0), total: totalSystemLessons }) : `${Number(s.completed_lessons || 0)}/${totalSystemLessons} ders`}</div>
+        </td>
+        <td><span style="font-family:var(--mono);font-weight:600;">${s.ctf_score}</span></td>
+        <td><span style="font-family:var(--mono);font-size:.84rem;">${s.completed_lessons}</span></td>
+        <td data-sort="${createdTs}"><span style="font-size:.8rem;color:var(--text-3);">${formatDate(s.created_at)}</span></td>
+        <td data-sort="${lastSeenTs}">${seenHtml}</td>
+        <td>${statusHtml}</td>
+        <td>
+          <div style="display:flex;gap:5px;">
+            <button class="btn btn-ghost btn-sm btn-icon" title="${typeof t === "function" ? t("admin.students.titleDetail") : "Detay"}" onclick="openDrawer(${s.id})">→</button>
+            <button class="btn btn-danger btn-sm btn-icon" title="${typeof t === "function" ? t("admin.students.titleDelete") : "Sil"}" onclick="askDelete(${Number(s.id)})">🗑</button>
+          </div>
+        </td>
+      </tr>`;
+    }).join("");
+  }
+
+  // ── Add student ────────────────────────────────────
+  function openAddStudent() {
+    ["newName","newEmail","newPassword"].forEach(id => document.getElementById(id).value = "");
+    document.getElementById("newPassword").type = "password";
+    hideError("addStudentErr");
+    openModal("addStudentModal");
+    document.getElementById("newName").focus();
+  }
+  async function submitAddStudent() {
+    const name = document.getElementById("newName").value.trim();
+    const email = document.getElementById("newEmail").value.trim();
+    const password = document.getElementById("newPassword").value;
+    const btn = document.getElementById("addStudentBtn");
+    if (!name || !email || !password) { showError("addStudentErr", typeof t === "function" ? t("admin.students.errAllFields") : "Tüm alanlar zorunludur."); return; }
+    // Sunucudaki politikayla ayni: en az 10 karakter, harf + rakam.
+    if (!isStrongPassword(password)) {
+      showError("addStudentErr", typeof t === "function" ? t("admin.students.errPwdLen") : "Şifre en az 10 karakter olmalı ve harf ile rakam içermelidir.");
+      return;
+    }
+    btn.textContent = typeof t === "function" ? t("admin.students.btnAdding") : "Ekleniyor…"; btn.disabled = true;
+    const res = await fetch(`${API}/students`, {
+      method:"POST", headers:{Authorization:`Bearer ${_token}`,"Content-Type":"application/json"},
+      body: JSON.stringify({name,email,password}),
+    });
+    const data = await res.json();
+    btn.textContent = typeof t === "function" ? t("common.add") : "Ekle"; btn.disabled = false;
+    if (!res.ok) { showError("addStudentErr", data.error || (typeof t === "function" ? t("admin.students.errGeneric") : "Hata oluştu.")); return; }
+    closeModal("addStudentModal");
+    toast(typeof t === "function" ? t("admin.students.toastAdded", { name }) : `${name} eklendi.`);
+    reloadPage();
+  }
+
+  // ── Delete ─────────────────────────────────────────
+  function askDelete(id) {
+    deleteTargetId = id;
+    const found = allStudents.find((x) => Number(x.id) === Number(id));
+    const name = found ? found.name : "";
+    const msg = document.getElementById("delStudentMsg");
+    if (msg) msg.textContent = typeof t === "function" ? t("admin.students.delConfirmFull", { name }) : `${name} adlı öğrenciyi silmek istediğinizden emin misiniz? Bu işlem geri alınamaz.`;
+    openModal("deleteModal");
+  }
+  function askDeleteFromDrawer() {
+    const name = document.getElementById("drawerName").textContent;
+    closeDrawer();
+    askDelete(drawerStudentId);
+  }
+  async function confirmDelete() {
+    const btn = document.getElementById("confirmDelBtn");
+    btn.textContent = typeof t === "function" ? t("admin.students.deleting") : "Siliniyor…"; btn.disabled = true;
+    await fetch(`${API}/students/${deleteTargetId}`, {
+      method:"DELETE", headers:{Authorization:`Bearer ${_token}`},
+    });
+    btn.textContent = typeof t === "function" ? t("common.yesDelete") : "Evet, Sil"; btn.disabled = false;
+    closeModal("deleteModal");
+    toast(typeof t === "function" ? t("admin.students.toastDeleted") : "Öğrenci silindi.", "error");
+    reloadPage();
+  }
+
+  // ── Drawer ─────────────────────────────────────────
+  function hidePwdErr() {
+    const e = document.getElementById("pwdErr");
+    e.style.display = "none";
+    e.textContent = "";
+  }
+  function showPwdErr(msg) {
+    const e = document.getElementById("pwdErr");
+    e.textContent = msg;
+    e.style.display = "block";
+  }
+
+  async function submitPasswordChange() {
+    if (!drawerStudentId) return;
+    const p1 = document.getElementById("pwdNew1").value;
+    const p2 = document.getElementById("pwdNew2").value;
+    hidePwdErr();
+    if (!isStrongPassword(p1)) { showPwdErr(typeof t === "function" ? t("admin.students.errPwdLen") : "Şifre en az 10 karakter olmalı ve harf ile rakam içermelidir."); return; }
+    if (p1 !== p2) { showPwdErr(typeof t === "function" ? t("admin.students.errPwdMatch") : "Şifreler eşleşmiyor."); return; }
+    const btn = document.getElementById("pwdSaveBtn");
+    btn.textContent = typeof t === "function" ? t("admin.students.pwdSaving") : "Kaydediliyor…";
+    btn.disabled = true;
+    const res = await fetch(`${API}/students/${drawerStudentId}/password`, {
+      method: "PUT",
+      headers: { Authorization: `Bearer ${_token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ password: p1 }),
+    });
+    const data = await res.json();
+    btn.textContent = typeof t === "function" ? t("admin.students.btnSavePwd") : "Şifreyi kaydet";
+    btn.disabled = false;
+    if (!res.ok) { showPwdErr(data.error || (typeof t === "function" ? t("admin.students.errUpdate") : "Güncellenemedi.")); return; }
+    document.getElementById("pwdNew1").value = "";
+    document.getElementById("pwdNew2").value = "";
+    toast(typeof t === "function" ? t("admin.students.toastPwdOk") : "Şifre güncellendi.");
+  }
+
+  /** Sunucu politikasi: en az 10 karakter, en az bir harf ve bir rakam. */
+  function isStrongPassword(pw) {
+    return typeof pw === "string" && pw.length >= 10 && pw.length <= 200 &&
+      /[A-Za-z]/.test(pw) && /[0-9]/.test(pw);
+  }
+
+  function generateClientRandomPassword(len = 14) {
+    const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%&*";
+    // Politikayi her zaman saglamasi icin harf/rakam garantisiyle uretilir.
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const arr = new Uint8Array(len);
+      crypto.getRandomValues(arr);
+      let s = "";
+      for (let i = 0; i < len; i++) s += chars[arr[i] % chars.length];
+      if (isStrongPassword(s)) return s;
+    }
+    return "Edu" + Math.floor(Math.random() * 1e9) + "aA1";
+  }
+  function fillNewStudentRandomPassword() {
+    const el = document.getElementById("newPassword");
+    el.value = generateClientRandomPassword(12);
+    el.type = "text";
+    el.focus();
+    el.select();
+    toast(typeof t === "function" ? t("admin.students.toastRandNew") : "Rastgele şifre oluşturuldu; kopyalayıp tekrar gizlemek için alanı düzenleyin.");
+  }
+  function fillDrawerRandomPassword() {
+    const p = generateClientRandomPassword(12);
+    const a = document.getElementById("pwdNew1");
+    const b = document.getElementById("pwdNew2");
+    a.value = p;
+    b.value = p;
+    a.type = "text";
+    b.type = "text";
+    hidePwdErr();
+    a.focus();
+    a.select();
+    toast(typeof t === "function" ? t("admin.students.toastRandDrawer") : "Rastgele şifre oluşturuldu (kopyalamak için seçili).");
+  }
+
+  async function exportStudentsExcel(withPasswords) {
+    if (withPasswords) {
+      if (!confirm(
+        typeof t === "function" ? t("admin.students.confirmExportPwd") :
+        "Tüm öğrenciler için yeni rastgele şifre oluşturulacak ve sisteme kaydedilecek.\n\n" +
+        "Şifreler yalnızca indirdiğiniz CSV dosyasında görünür; dosyayı güvenli saklayın.\n\nDevam edilsin mi?"
+      )) return;
+    }
+    try {
+      const url = withPasswords
+        ? `${API}/students/export/csv?withPasswords=1`
+        : `${API}/students/export/csv`;
+      const res = await fetch(url, {
+        headers: { Authorization: `Bearer ${_token}` },
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        toast(err.error || (typeof t === "function" ? t("admin.students.exportFail") : "Dışa aktarma başarısız."), "error");
+        return;
+      }
+      const blob = await res.blob();
+      const cd = res.headers.get("Content-Disposition");
+      let fname = "ogrenciler.csv";
+      const m = cd && /filename\*=UTF-8''([^;\s]+)|filename="?([^";]+)"?/i.exec(cd);
+      if (m) fname = decodeURIComponent(m[1] || m[2] || fname);
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = fname;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast(withPasswords
+        ? (typeof t === "function" ? t("admin.students.toastExportPwd") : "CSV indirildi: her öğrencinin yeni şifresi “Şifre” sütununda.")
+        : (typeof t === "function" ? t("admin.students.toastExportOk") : "Dosya indirildi (Excel ile açabilirsiniz)."));
+    } catch (e) {
+      toast(typeof t === "function" ? t("admin.students.downloadFail") : "İndirilemedi.", "error");
+    }
+  }
+
+  async function openDrawer(id) {
+    drawerStudentId = id;
+    hidePwdErr();
+    document.getElementById("pwdNew1").value = "";
+    document.getElementById("pwdNew2").value = "";
+    document.getElementById("pwdNew1").type = "password";
+    document.getElementById("pwdNew2").type = "password";
+    document.getElementById("drawerOverlay").classList.add("open");
+    document.getElementById("studentDrawer").classList.add("open");
+    document.getElementById("drawerName").textContent = typeof t === "function" ? t("admin.students.loading") : "Yükleniyor…";
+    ["drawerEmail","drawerSeen","drawerModules","drawerCtf","drawerExams"].forEach(i => document.getElementById(i).innerHTML = "");
+    ["drawerPct","drawerScore","drawerLabs","drawerJoined"].forEach(i => document.getElementById(i).textContent = "—");
+
+    const data = await apiFetch(`/students/${id}`);
+    if (!data || data.error) return;
+
+    document.getElementById("drawerAvatar").textContent   = initials(data.name);
+    document.getElementById("drawerAvatar").style.background = avatarColor(data.name);
+    document.getElementById("drawerName").textContent   = data.name;
+    document.getElementById("drawerEmail").textContent  = data.email;
+
+    const row = allStudents.find(s => Number(s.id) === Number(id));
+    const totalL = data.modules.reduce((s,m) => s + m.total_lessons, 0);
+    const doneL  = data.modules.reduce((s,m) => s + parseInt(m.completed_lessons, 10), 0);
+    const pctCalc = totalL ? Math.round(doneL / totalL * 100) : 0;
+    const ctfSum = data.ctf_solves.reduce((s,c) => s + c.points, 0);
+
+    if (row) {
+      document.getElementById("drawerPct").textContent = `${row.progress_pct ?? 0}%`;
+      document.getElementById("drawerScore").textContent = String(row.ctf_score ?? 0);
+      document.getElementById("drawerLabs").textContent = String(row.completed_lessons ?? 0);
+      document.getElementById("drawerSeen").textContent = row.is_online
+        ? (typeof t === "function" ? t("admin.students.online") : "● Çevrim içi")
+        : (row.last_seen_at
+          ? (typeof t === "function" ? t("admin.students.lastSeen", { time: relativeTime(row.last_seen_at) }) : `Son görülme: ${relativeTime(row.last_seen_at)}`)
+          : (typeof t === "function" ? t("admin.students.neverLoginLong") : "Henüz giriş yok"));
+      document.getElementById("drawerSeen").style.color = row.is_online ? "var(--green)" : "var(--text-3)";
+    } else {
+      document.getElementById("drawerPct").textContent = `${pctCalc}%`;
+      document.getElementById("drawerScore").textContent = String(ctfSum);
+      document.getElementById("drawerLabs").textContent = String(doneL);
+      document.getElementById("drawerSeen").textContent = "—";
+      document.getElementById("drawerSeen").style.color = "var(--text-3)";
+    }
+    document.getElementById("drawerJoined").textContent = formatDate(data.created_at);
+
+    document.getElementById("drawerModules").innerHTML = data.modules.map(m => {
+      const mp = m.total_lessons ? Math.round(m.completed_lessons/m.total_lessons*100) : 0;
+      return `<div class="detail-module-row">
+        <div style="flex:1;">
+          <div style="font-size:.86rem;font-weight:500;color:var(--text);">${escapeHtml(m.title)}</div>
+          <div style="font-size:.75rem;color:var(--text-3);margin-top:2px;">${typeof t === "function" ? t("admin.students.lessonsPair", { done: m.completed_lessons, total: m.total_lessons }) : `${m.completed_lessons}/${m.total_lessons} ders`}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:7px;">
+          <div class="progress-bar" style="width:72px;"><div class="progress-fill" style="width:${mp}%;${mp>=100?"background:var(--green);":""}"></div></div>
+          <span style="font-size:.78rem;color:var(--text-2);min-width:30px;text-align:right;">${mp}%</span>
+        </div>
+      </div>`;
+    }).join("");
+
+    document.getElementById("drawerCtf").innerHTML = data.ctf_solves.length
+      ? data.ctf_solves.map(c => `
+          <div class="ctf-row">
+            <span>✅</span>
+            <span style="flex:1;min-width:0;">
+              <div style="font-size:.86rem;color:var(--text);font-weight:500;">${escapeHtml(c.title)}</div>
+              <div style="font-size:.73rem;color:var(--text-3);margin-top:1px;">${formatDate(c.solved_at)} · ${relativeTime(c.solved_at)}</div>
+            </span>
+            <span class="badge ${DIFF_BADGE[c.difficulty]||"badge-gray"}" style="font-size:.72rem;flex-shrink:0;">${diffLabel(c.difficulty)}</span>
+            <span style="font-family:var(--mono);font-size:.82rem;font-weight:700;color:var(--green);flex-shrink:0;">+${c.points}</span>
+          </div>`).join("")
+      : `<div style="font-size:.84rem;color:var(--text-3);padding:12px;text-align:center;border:1px dashed var(--border);border-radius:10px;">${typeof t === "function" ? t("admin.students.ctfEmpty") : "Henüz çözüm yok."}</div>`;
+
+    document.getElementById("drawerExams").innerHTML = Array.isArray(data.exam_attempts) && data.exam_attempts.length
+      ? data.exam_attempts.map(a => `
+          <div class="detail-module-row" style="align-items:flex-start;">
+            <div style="flex:1;min-width:0;">
+              <div style="font-size:.86rem;font-weight:600;color:var(--text);">${escapeHtml(a.module_title || (typeof t === "function" ? t("admin.students.examModule") : "Modül sınavı"))}</div>
+              <div style="font-size:.75rem;color:var(--text-3);margin-top:2px;">${formatDate(a.attempted_at)} · ${relativeTime(a.attempted_at)}</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;">
+              <span class="badge ${a.passed ? "badge-green" : "badge-red"}" style="font-size:.72rem;">${a.passed ? (typeof t === "function" ? t("admin.students.examPass") : "GEÇTİ") : (typeof t === "function" ? t("admin.students.examFail") : "KALDI")}</span>
+              <span style="font-family:var(--mono);font-size:.82rem;font-weight:700;color:${a.passed ? "var(--green)" : "var(--red)"};">%${Number(a.score || 0)}</span>
+            </div>
+          </div>
+        `).join("")
+      : `<div style="font-size:.84rem;color:var(--text-3);padding:12px;text-align:center;border:1px dashed var(--border);border-radius:10px;">${typeof t === "function" ? t("admin.students.examEmpty") : "Henüz sınav denemesi yok."}</div>`;
+  }
+  function closeDrawer() {
+    document.getElementById("drawerOverlay").classList.remove("open");
+    document.getElementById("studentDrawer").classList.remove("open");
+  }
+
+  reloadPage();
+</script>
+</body>
+</html>

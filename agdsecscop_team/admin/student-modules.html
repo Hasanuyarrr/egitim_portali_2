@@ -1,0 +1,552 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — Modüllerim</title>
+  <link rel="stylesheet" href="admin.css">
+  <link rel="stylesheet" href="student-shell.css">
+  <style>
+    .sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:45; }
+    .module-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:14px; }
+    @media (max-width:980px){ .module-grid { grid-template-columns:1fr; } .sidebar-overlay.visible{display:block;} }
+    .module-card { background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:16px; box-shadow:var(--shadow-sm); }
+    .module-head { display:flex; justify-content:space-between; align-items:flex-start; gap:10px; }
+    .chip {
+      border:1px solid var(--border); background:var(--bg); color:var(--text-2);
+      border-radius:999px; font-size:.76rem; font-weight:700; padding:5px 10px; cursor:pointer;
+    }
+    .chip.active { background:var(--red-light); color:var(--red); border-color:rgba(199,48,80,.35); }
+    .toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:10px; margin-bottom:14px; }
+    .toolbar .search {
+      border:1px solid var(--border-2); background:var(--bg); color:var(--text);
+      border-radius:8px; font-size:.84rem; padding:8px 10px; min-width:220px;
+    }
+    .lesson-row {
+      display:flex; align-items:flex-start; gap:8px; padding:8px 10px;
+      border:1px solid var(--border); border-radius:8px; background:var(--bg); margin-top:7px;
+    }
+    .small-muted { font-size:.76rem; color:var(--text-3); }
+    .links-wrap { display:flex; flex-wrap:wrap; gap:6px; margin-top:8px; }
+    .module-detail {
+      margin-top: 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      background: var(--bg);
+      overflow: hidden;
+    }
+    .module-detail summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 10px 12px;
+      font-size: .82rem;
+      font-weight: 700;
+      color: var(--text-2);
+      border-bottom: 1px solid transparent;
+    }
+    .module-detail[open] summary { border-bottom-color: var(--border); }
+    .detail-body { padding: 10px 12px; }
+    .lesson-full {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--bg-card);
+      padding: 10px;
+      margin-bottom: 8px;
+    }
+    .lesson-full:last-child { margin-bottom: 0; }
+    .lesson-content {
+      margin-top: 6px;
+      font-size: .82rem;
+      color: var(--text-2);
+      line-height: 1.6;
+      white-space: pre-wrap;
+    }
+    .lesson-actions { display:flex; gap:8px; align-items:center; flex-wrap:wrap; margin-top:8px; }
+    .lesson-done { font-size:.74rem; color:var(--green); font-weight:700; }
+    .section-title {
+      font-size: .72rem;
+      color: var(--text-3);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .04em;
+      margin-top: 10px;
+      margin-bottom: 6px;
+    }
+    .exam-q { border:1px solid var(--border); border-radius:8px; background:var(--bg); padding:10px; margin-bottom:8px; }
+    /* Modül sınavı: uzun soru listesinde gövde kayar, başlık ve alt butonlar sabit */
+    #examModal.modal-overlay .modal {
+      max-width: 760px;
+      max-height: min(92vh, 900px);
+      display: flex;
+      flex-direction: column;
+    }
+    #examModal .modal-header,
+    #examModal .modal-footer {
+      flex-shrink: 0;
+    }
+    #examModal .modal-body {
+      flex: 1 1 auto;
+      min-height: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+    }
+  </style>
+</head>
+<body>
+<div class="admin-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+  <main class="admin-main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button type="button" class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+        <div>
+          <div class="topbar-title" data-i18n="student.topbar.brand">Öğrenci Paneli</div>
+          <div class="topbar-page-hint" id="studentPageHint"></div>
+          <div class="topbar-sub" id="topbarSub"></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="notif-wrap" id="notifWrap">
+          <button type="button" class="btn btn-ghost btn-sm notif-btn" id="notifBtn" onclick="toggleNotifPanel()" data-i18n-title="student.page.announcements" title="Duyurular">🔔
+            <span class="notif-badge" id="notifBadge" aria-hidden="true"></span>
+          </button>
+          <div class="notif-panel" id="notifPanel">
+            <div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:.76rem;font-weight:700;color:var(--text-2);display:flex;justify-content:space-between;align-items:center;">
+              <span id="notifPanelTitle">Yeni Duyurular</span>
+              <a id="notifSeeAll" href="student-announcements.html" style="font-size:.72rem;color:var(--blue);text-decoration:none;">Tümünü gör</a>
+            </div>
+            <div id="notifList" style="padding:0;"></div>
+          </div>
+        </div>
+        <div class="topbar-avatar">
+          <div class="avatar avatar-blue" style="width:28px;height:28px;font-size:0.7rem;" id="avatarInitials">—</div>
+          <span class="topbar-avatar-name" id="avatarName">Öğrenci</span>
+        </div>
+      </div>
+    </header>
+    <div class="page">
+      <div class="grid-4">
+        <div class="stat-card"><div class="stat-icon" style="background:var(--blue-light);color:var(--blue);">📚</div><div class="stat-info"><div class="stat-value" id="stTotal">—</div><div class="stat-label" data-i18n="student.modules.statTotal">Toplam Modül</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:var(--green-light);color:var(--green);">✅</div><div class="stat-info"><div class="stat-value" id="stDone">—</div><div class="stat-label" data-i18n="student.modules.statDone">Tamamlanan</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:var(--orange-light);color:var(--orange);">⏳</div><div class="stat-info"><div class="stat-value" id="stProgress">—</div><div class="stat-label" data-i18n="student.modules.statInProgress">Devam Eden</div></div></div>
+        <div class="stat-card"><div class="stat-icon" style="background:var(--red-light);color:var(--red);">📈</div><div class="stat-info"><div class="stat-value" id="stOverall">—</div><div class="stat-label" data-i18n="student.modules.statOverall">Genel İlerleme</div></div></div>
+      </div>
+      <div class="card">
+        <div class="card-header"><h3 data-i18n="student.modules.cardTitle">Tüm Modüller</h3><span class="badge badge-gray" id="countBadge">—</span></div>
+        <div class="card-body">
+          <div class="toolbar">
+            <div style="display:flex;gap:6px;flex-wrap:wrap;">
+              <button class="chip active" data-f="all" onclick="setFilter('all')" data-i18n="common.all">Tümü</button>
+              <button class="chip" data-f="progress" onclick="setFilter('progress')" data-i18n="student.dash.filterProgress">Devam Eden</button>
+              <button class="chip" data-f="done" onclick="setFilter('done')" data-i18n="student.dash.filterDone">Tamamlanan</button>
+              <button class="chip" data-f="new" onclick="setFilter('new')" data-i18n="student.modules.filterNew">Başlanmayan</button>
+            </div>
+            <input class="search" id="searchInput" data-i18n-placeholder="student.dash.searchPh" placeholder="Modül ara..." oninput="setSearch(this.value)">
+          </div>
+          <div class="module-grid" id="modulesGrid"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<div class="modal-overlay" id="examModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="examTitle" data-i18n="student.modules.examModalTitle">Modül Sınavı</h3>
+      <button class="modal-close" onclick="closeExamModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="examInfo" style="font-size:.82rem;color:var(--text-3);"></div>
+      <div id="examQuestionsWrap" style="margin-top:8px;"></div>
+      <div id="examMsg" class="badge badge-red" style="display:none;padding:8px;border-radius:8px;font-size:.82rem;"></div>
+      <div id="examRetryHint" style="display:none;font-size:.78rem;color:var(--text-2);margin-top:8px;line-height:1.45;"></div>
+      <div id="examAttemptsWrap" style="margin-top:10px;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeExamModal()" data-i18n="common.close">Kapat</button>
+      <button class="btn btn-primary" id="examSubmitBtn" onclick="submitModuleExam()" data-i18n="student.modules.examSubmit">Sınavı gönder</button>
+    </div>
+  </div>
+</div>
+<script src="theme-i18n.js"></script>
+<script src="student-shared.js"></script>
+<script>
+initStudentShell({ activePage: "modules", pageLabelKey: "student.page.modules" });
+if (typeof t === "function") document.title = "SeCScop — " + t("student.meta.titleModules");
+function sT(key, vars) {
+  return typeof t === "function" ? t(key, vars) : key;
+}
+function localeDate() {
+  return typeof getLang === "function" && getLang() === "en" ? "en-US" : "tr-TR";
+}
+const API = window.API;
+const token = window.token;
+const user = window.user;
+const apiFetch = window.apiFetch;
+let allModules = [];
+let activeFilter = "all";
+let query = "";
+let currentExam = null;
+let currentExamModuleId = null;
+
+// Ortak, tırnak/backtick kaçışlı sürüm (student-shared.js).
+const esc = window.escapeHtml;
+function escAttr(s){return String(s??"").replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;");}
+function setFilter(f){activeFilter=f; document.querySelectorAll(".chip").forEach(c=>c.classList.toggle("active", c.dataset.f===f)); renderModules();}
+function setSearch(v){query=String(v||"").trim().toLowerCase(); renderModules();}
+function openExamModal(){document.getElementById("examModal").classList.add("open");}
+function closeExamModal(){document.getElementById("examModal").classList.remove("open");}
+
+async function downloadModuleAttachment(moduleId, attachmentId, fileName){
+  const res = await fetch(`${API}/modules/${moduleId}/attachments/${attachmentId}/download`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!res.ok) { alert(sT("js.toast.downloadFail")); return; }
+  const blob = await res.blob();
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = fileName || sT("admin.lessons.defaultFileLabel");
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+async function downloadLessonFile(url, title){
+  try {
+    const u = new URL(url, location.origin);
+    if (u.origin === location.origin && u.pathname.startsWith("/api/modules/")) {
+      const res = await fetch(u.href, { headers: { Authorization: `Bearer ${token}` } });
+      if (!res.ok) { alert(sT("js.toast.downloadFail")); return; }
+      const blob = await res.blob();
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = title || sT("admin.lessons.defaultFileLabel");
+      a.click();
+      URL.revokeObjectURL(a.href);
+      return;
+    }
+  } catch {}
+  window.open(url, "_blank", "noopener");
+}
+
+function buildExamAttemptsHtml(attempts) {
+  const arr = Array.isArray(attempts) ? attempts : [];
+  const loc = localeDate();
+  const passL = sT("admin.lessons.badgePassed");
+  const failL = sT("admin.lessons.badgeFailed");
+  if (!arr.length) {
+    return `<div style="font-size:.78rem;color:var(--text-3);margin-top:8px;">${esc(sT("student.modules.examNoAttemptsYet"))}</div>`;
+  }
+  return `<div style="font-size:.75rem;color:var(--text-3);font-weight:700;text-transform:uppercase;letter-spacing:.04em;margin-bottom:6px;">${esc(sT("student.modules.examPrevAttempts"))}</div>
+    <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+      ${arr.slice(0, 12).map(a => `<div style="display:flex;align-items:center;gap:8px;padding:8px 10px;border-top:1px solid var(--border);">
+        <span class="badge ${a.passed ? "badge-green" : "badge-red"}" style="font-size:.7rem;">${a.passed ? esc(passL) : esc(failL)}</span>
+        <span style="font-family:var(--mono);font-size:.78rem;color:var(--text-2);">%${a.score}</span>
+        <span style="margin-left:auto;font-size:.74rem;color:var(--text-3);">${new Date(a.attempted_at).toLocaleString(loc)}</span>
+      </div>`).join("")}
+    </div>`;
+}
+
+function getModuleExamAttemptCount() {
+  if (!currentExam) return 0;
+  return Array.isArray(currentExam.attempts) ? currentExam.attempts.length : 0;
+}
+
+/** Güncel deneme sayısı, bilgi satırı, önceki denemeler listesi ve gönder butonu (metin + disabled). examMsg’e dokunmaz. */
+function syncExamModalMetadata() {
+  if (!currentExam || !currentExam.exam) return false;
+  const ex = currentExam.exam;
+  const used = getModuleExamAttemptCount();
+  const max = Number(ex.max_attempts || 0);
+  const attemptStr = max > 0
+    ? sT("student.modules.examAttemptsLimited", { used, max })
+    : sT("student.modules.examAttemptsUnlimited", { used });
+  document.getElementById("examInfo").textContent = sT("student.modules.examPassInfo", {
+    pass: ex.pass_score,
+    q: ex.questions.length,
+    attempts: attemptStr,
+  });
+  document.getElementById("examAttemptsWrap").innerHTML = buildExamAttemptsHtml(currentExam.attempts);
+  const btn = document.getElementById("examSubmitBtn");
+  const blocked = max > 0 && used >= max;
+  btn.disabled = blocked;
+  btn.textContent = blocked
+    ? sT("student.modules.examSubmit")
+    : used > 0
+      ? sT("student.modules.examSubmitAgain")
+      : sT("student.modules.examSubmit");
+  return blocked;
+}
+
+function clearExamQuestionRadios() {
+  document.querySelectorAll("#examQuestionsWrap input[type=\"radio\"]").forEach((el) => {
+    el.checked = false;
+  });
+}
+
+async function startExam(moduleId) {
+  const data = await apiFetch(`/modules/${moduleId}/exam`);
+  if (!data || data.error) { alert(data?.error || sT("student.modules.examLoadFail")); return; }
+  const ex = data.exam || {};
+  if (!ex.enabled || !Array.isArray(ex.questions) || !ex.questions.length) {
+    alert(sT("student.modules.examNotActive"));
+    return;
+  }
+  currentExam = data;
+  currentExam.attempts = Array.isArray(data.attempts) ? data.attempts : [];
+  currentExamModuleId = moduleId;
+  document.getElementById("examTitle").textContent = `${data.module_title}${sT("student.modules.examTitleSuffix")}`;
+  document.getElementById("examMsg").style.display = "none";
+  const retryHint = document.getElementById("examRetryHint");
+  if (retryHint) { retryHint.style.display = "none"; retryHint.textContent = ""; }
+  document.getElementById("examQuestionsWrap").innerHTML = ex.questions.map((q, i) => `
+    <div class="exam-q">
+      <div style="font-size:.84rem;font-weight:700;color:var(--text);margin-bottom:6px;">${i + 1}) ${esc(q.question || "")}</div>
+      ${(q.options || []).map((opt, oi) => `
+        <label style="display:flex;gap:8px;align-items:flex-start;margin-bottom:6px;font-size:.82rem;color:var(--text-2);">
+          <input type="radio" name="exam_q_${i}" value="${oi}">
+          <span>${esc(opt)}</span>
+        </label>
+      `).join("")}
+    </div>
+  `).join("");
+  const blocked = syncExamModalMetadata();
+  if (blocked) {
+    const msg = document.getElementById("examMsg");
+    msg.textContent = sT("student.modules.examMaxReached");
+    msg.className = "badge badge-red";
+    msg.style.display = "block";
+  }
+  openExamModal();
+}
+
+async function submitModuleExam() {
+  if (!currentExam || !currentExam.exam) return;
+  const qLen = currentExam.exam.questions.length;
+  const answers = [];
+  for (let i = 0; i < qLen; i++) {
+    const checked = document.querySelector(`input[name="exam_q_${i}"]:checked`);
+    answers.push(checked ? Number(checked.value) : -1);
+  }
+  const btn = document.getElementById("examSubmitBtn");
+  const retryHint = document.getElementById("examRetryHint");
+  btn.disabled = true;
+  btn.textContent = sT("student.modules.examSubmitting");
+  if (retryHint) { retryHint.style.display = "none"; retryHint.textContent = ""; }
+  const res = await fetch(`${API}/modules/${currentExamModuleId}/exam/submit`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ answers }),
+  });
+  const data = await res.json().catch(() => ({}));
+  const msg = document.getElementById("examMsg");
+  if (!res.ok) {
+    btn.disabled = false;
+    syncExamModalMetadata();
+    msg.textContent = data.error || sT("student.modules.examSubmitFail");
+    msg.className = "badge badge-red";
+    msg.style.display = "block";
+    return;
+  }
+  currentExam.attempts = Array.isArray(currentExam.attempts) ? currentExam.attempts : [];
+  currentExam.attempts.unshift(data.attempt);
+  const mod = allModules.find((m) => Number(m.module_id) === Number(currentExamModuleId));
+  if (mod) {
+    mod.exam_attempts = Array.isArray(mod.exam_attempts) ? mod.exam_attempts : [];
+    mod.exam_attempts.unshift(data.attempt);
+  }
+  msg.textContent = sT("student.modules.examResult", {
+    score: data.score,
+    correct: data.correct_count,
+    total: data.total_questions,
+    result: data.passed ? sT("student.modules.examPassed") : sT("student.modules.examFailed"),
+    pass: data.pass_score,
+  });
+  msg.className = `badge ${data.passed ? "badge-green" : "badge-red"}`;
+  msg.style.display = "block";
+  const max = Number(currentExam.exam.max_attempts || 0);
+  const used = getModuleExamAttemptCount();
+  const atLimit = max > 0 && used >= max;
+  const canRetry = !atLimit;
+  syncExamModalMetadata();
+  if (canRetry) {
+    clearExamQuestionRadios();
+    if (retryHint) {
+      retryHint.textContent = sT("student.modules.examRetryHint");
+      retryHint.style.display = "block";
+    }
+  } else if (retryHint) {
+    retryHint.style.display = "none";
+    retryHint.textContent = "";
+  }
+  renderModules();
+}
+
+function moduleLessons(m){
+  if (Array.isArray(m.lessons) && m.lessons.length) return m.lessons;
+  if (Array.isArray(m.topics)) return m.topics.map((topic, i) => ({ title: topic.title || sT("student.modules.lessonDefault", { n: i + 1 }), content: topic.description || "" }));
+  return [];
+}
+function cleanLessons(m){
+  return moduleLessons(m).filter((l, i) => {
+    const title = String(l?.title || "").trim();
+    const content = String(l?.content || "").trim();
+    const files = Array.isArray(l?.files) ? l.files.filter(f => f && (f.url || f.title)) : [];
+    if (title && /^ders\s+\d+$/i.test(title) && !content && files.length === 0) return false;
+    return !!(title || content || files.length || i < 1);
+  });
+}
+
+function filteredModules(){
+  return allModules.filter(m=>{
+    if (activeFilter==="done" && m.pct<100) return false;
+    if (activeFilter==="progress" && !(m.pct>0 && m.pct<100)) return false;
+    if (activeFilter==="new" && m.pct!==0) return false;
+    if (!query) return true;
+    return `${m.title} ${m.description||""} ${m.summary||""}`.toLowerCase().includes(query);
+  });
+}
+
+async function setCompletedLessons(moduleId, targetCompleted) {
+  const res = await fetch(`${API}/progress/${moduleId}`, {
+    method: "PUT",
+    headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ completed_lessons: targetCompleted }),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    alert(data.error || sT("student.modules.progressFail"));
+    return;
+  }
+  await loadProgressData();
+}
+
+function renderStats(modules, overallPct){
+  const done = modules.filter(m=>m.pct>=100).length;
+  const prog = modules.filter(m=>m.pct>0 && m.pct<100).length;
+  document.getElementById("stTotal").textContent = modules.length;
+  document.getElementById("stDone").textContent = done;
+  document.getElementById("stProgress").textContent = prog;
+  document.getElementById("stOverall").textContent = `%${overallPct}`;
+}
+
+function renderModules(){
+  const list = filteredModules();
+  document.getElementById("countBadge").textContent = sT("student.dash.moduleCount", { n: list.length, m: allModules.length });
+  const grid = document.getElementById("modulesGrid");
+  if(!list.length){
+    grid.innerHTML = `<div style="grid-column:1/-1;color:var(--text-3);text-align:center;padding:20px;">${esc(sT("student.modules.emptyFilter"))}</div>`;
+    return;
+  }
+  const loc = localeDate();
+  const df = sT("admin.lessons.defaultFileLabel");
+  grid.innerHTML = list.map(m=>{
+    const done=m.pct>=100;
+    const badge=done?`<span class="badge badge-green">${esc(sT("student.modules.badgeDone"))}</span>`:m.pct>0?`<span class="badge badge-orange">${esc(sT("student.modules.badgeProgress"))}</span>`:`<span class="badge badge-gray">${esc(sT("student.modules.badgeNew"))}</span>`;
+    const allLessonItems = cleanLessons(m);
+    const links = Array.isArray(m.links) ? m.links.slice(0,3) : [];
+    const linksHtml = links.length ? `<div><div class="section-title">${esc(sT("student.modules.sectionLinks"))}</div><div class="links-wrap">${links.map(x=>`<a class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:.72rem;" href="${esc(x.url)}" target="_blank" rel="noopener">${x.kind==="video"?"▶":"🔗"} ${esc(x.title||sT("student.modules.linkFallback"))}</a>`).join("")}</div></div>` : "";
+    const files = Array.isArray(m.files) ? m.files : [];
+    const filesN = files.length;
+    const filesHtml = files.length ? `
+      <div style="margin-top:8px;">
+        <div class="section-title">${esc(sT("student.modules.sectionFiles"))}</div>
+        <div class="links-wrap">
+          ${files.map(f => `<button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:.72rem;" onclick="downloadModuleAttachment(${m.module_id}, ${f.id}, '${escAttr(f.file_name || df)}')">${(f.kind||"document")==="video" ? "🎬" : "📄"} ${esc(f.file_name || df)}</button>`).join("")}
+        </div>
+      </div>
+    ` : "";
+    const lessonDetailHtml = allLessonItems.length ? `
+      <details class="module-detail">
+        <summary>${esc(sT("student.modules.lessonsSummary", { n: allLessonItems.length }))}</summary>
+        <div class="detail-body">
+          ${allLessonItems.map((l, i) => {
+            const lf = Array.isArray(l.files) ? l.files : [];
+            const completed = Number(m.completed_lessons || 0);
+            const lessonNo = i + 1;
+            const isDone = lessonNo <= completed;
+            const canMark = lessonNo === completed + 1;
+            return `<div class="lesson-full">
+              <div style="font-size:.82rem;font-weight:700;color:var(--text);">#${String(i+1).padStart(2,"0")} ${esc(l.title || sT("student.modules.lessonDefault", { n: i + 1 }))}</div>
+              <div class="lesson-content">${esc(l.content || sT("student.modules.lessonNoContent"))}</div>
+              ${lf.length ? `<div class="links-wrap">${lf.map(x => `<button type="button" class="btn btn-ghost btn-sm" style="padding:4px 8px;font-size:.72rem;" onclick="downloadLessonFile('${escAttr(x.url || "#")}', '${escAttr(x.title || df)}')">📎 ${esc(x.title || sT("student.modules.fileFallback"))}</button>`).join("")}</div>` : ""}
+              <div class="lesson-actions">
+                ${isDone
+                  ? `<span class="lesson-done">${esc(sT("student.modules.understood"))}</span>`
+                  : `<button type="button" class="btn btn-primary btn-sm" ${canMark ? "" : "disabled"} onclick="setCompletedLessons(${m.module_id}, ${lessonNo})">${esc(sT("student.modules.btnUnderstood"))}</button>`
+                }
+                ${!isDone && !canMark ? `<span class="small-muted">${esc(sT("student.modules.completePrev"))}</span>` : ""}
+              </div>
+            </div>`;
+          }).join("")}
+        </div>
+      </details>
+    ` : "";
+    const examMeta = m.exam && Array.isArray(m.exam.questions) ? m.exam : null;
+    const examReady = !!(examMeta && examMeta.enabled && examMeta.questions.length > 0);
+    const isCompleted = m.pct >= 100;
+    const examAttempts = Array.isArray(m.exam_attempts) ? m.exam_attempts : [];
+    const lastExam = examAttempts.length ? examAttempts[0] : null;
+    const examResultHtml = lastExam
+      ? `<div style="margin-top:8px;font-size:.78rem;color:var(--text-2);">
+          ${esc(sT("student.modules.lastExam"))} <strong style="color:${lastExam.passed ? "var(--green)" : "var(--red)"};">%${lastExam.score} ${lastExam.passed ? esc(sT("student.modules.passedShort")) : esc(sT("student.modules.failedShort"))}</strong>
+          <span class="small-muted"> · ${new Date(lastExam.attempted_at).toLocaleDateString(loc)}</span>
+        </div>`
+      : "";
+    const examHtml = isCompleted
+      ? (examReady
+        ? `<div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button type="button" class="btn btn-primary btn-sm" onclick="startExam(${m.module_id})">${esc(sT("student.modules.btnExam"))}</button>
+            <span class="small-muted">${esc(sT("student.modules.passScoreHint", { n: m.exam.pass_score || 70 }))}</span>
+          </div>${examResultHtml}`
+        : `<div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button type="button" class="btn btn-ghost btn-sm" disabled>${esc(sT("student.modules.btnExam"))}</button>
+            <span class="small-muted">${esc(sT("student.modules.examNoDef"))}</span>
+          </div>`)
+      : (examReady
+        ? `<div style="margin-top:10px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+            <button type="button" class="btn btn-ghost btn-sm" disabled>${esc(sT("student.modules.examActiveLocked"))}</button>
+            <span class="small-muted">${esc(sT("student.modules.examNeedComplete", { done: m.completed_lessons, total: m.total_lessons }))}</span>
+          </div>`
+        : "");
+    return `<div class="module-card">
+      <div class="module-head">
+        <div style="min-width:0;">
+          <div style="font-weight:700;color:var(--text);">${esc(m.title)}</div>
+          <div class="small-muted" style="margin-top:2px;">${esc(m.description||sT("student.modules.noDesc"))}</div>
+        </div>
+        ${badge}
+      </div>
+      <div style="margin-top:10px;" class="progress-bar"><div class="progress-fill" style="width:${m.pct}%;"></div></div>
+      <div style="margin-top:6px;font-size:.8rem;color:var(--text-2);">${esc(sT("student.modules.metaLine", { done: m.completed_lessons, total: m.total_lessons, pct: m.pct }))}</div>
+      <div class="small-muted" style="margin-top:8px;">${esc(sT("student.modules.metaFilesLessons", { files: filesN, lessons: allLessonItems.length }))}</div>
+      ${m.summary ? `<div style="margin-top:8px;font-size:.8rem;color:var(--text-2);line-height:1.5;">${esc(String(m.summary).slice(0,140))}${String(m.summary).length>140?"…":""}</div>` : ""}
+      ${linksHtml}
+      ${filesHtml}
+      ${lessonDetailHtml}
+      ${examHtml}
+    </div>`;
+  }).join("");
+}
+
+async function loadProgressData(){
+  const data = await apiFetch("/progress");
+  if(!data||data.error) return;
+  allModules = (data.modules || []).map((m) => ({ ...m, exam_attempts: [] }));
+  // Load exam attempts for modules that have exam configured.
+  await Promise.all(allModules.map(async (m) => {
+    if (!m.exam || !m.exam.enabled || !Array.isArray(m.exam.questions) || !m.exam.questions.length) return;
+    const ex = await apiFetch(`/modules/${m.module_id}/exam`);
+    if (ex && !ex.error) m.exam_attempts = Array.isArray(ex.attempts) ? ex.attempts : [];
+  }));
+  renderStats(allModules, data.overall_pct || 0);
+  renderModules();
+}
+
+loadProgressData();
+</script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="tr" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="SeCScop: ağ temellerinden bulut güvenliğine yapılandırılmış müfredat; uygulamalı laboratuvar, CTF ve bug bounty bileşenleri.">
+  <title>SeCScop — Siber Güvenlik Akademisi</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body class="page-sectioned">
+
+  <nav class="site-nav">
+    <div class="nav-inner">
+      <a class="brand" href="index.html">SeC<span>Scop</span></a>
+      <button class="nav-toggle" id="navToggle" aria-label="Menü">
+        <span></span><span></span><span></span>
+      </button>
+      <ul class="nav-links" id="navLinks">
+        <li><a class="active" href="index.html" data-i18n="nav.home">Anasayfa</a></li>
+        <li><a href="hizmetlerimiz.html" data-i18n="nav.services">Hizmetlerimiz</a></li>
+        <li><a href="misyonumuz.html" data-i18n="nav.mission">Misyonumuz</a></li>
+        <li><a href="vizyonumuz.html" data-i18n="nav.vision">Vizyonumuz</a></li>
+        <li><a href="egitmen.html" data-i18n="nav.instructor">Eğitmen</a></li>
+      </ul>
+      <div class="nav-actions">
+        <a class="login-btn" href="admin/login.html" data-i18n="nav.login">Giriş Yap</a>
+        <button class="lang-btn" id="langToggle" aria-label="Switch language">EN</button>
+        <button class="theme-btn" id="themeToggle" aria-label="Toggle theme">
+          <!-- icon injected by JS -->
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <main>
+    <div class="wrap">
+
+      <div class="hero-layout reveal">
+        <section class="hero">
+          <p class="hero-label" data-i18n="idx.hero.label">Siber Güvenlik Uzmanlık Programı</p>
+          <h1 data-i18n="idx.hero.h1">Tehditleri analiz edin.<br><em>Savunmayı tasarlayın.</em></h1>
+          <p data-i18n="idx.hero.p">Ağ temellerinden bulut güvenlik mimarisine uzanan müfredat; uygulamalı laboratuvar, CTF ve bug bounty bileşenleriyle desteklenir.</p>
+          <div class="btn-row">
+            <a class="btn btn-primary" href="hizmetlerimiz.html" data-i18n="idx.btn.primary">Programı İnceleyin</a>
+            <a class="btn btn-outline" href="vizyonumuz.html" data-i18n="idx.btn.secondary">Kariyer Vizyonu</a>
+            <a class="btn btn-outline" href="egitmen.html" data-i18n="idx.btn.instructor">Eğitmen</a>
+          </div>
+        </section>
+        <div class="hero-panel" aria-hidden="true">
+          <div class="hero-panel-grid"></div>
+          <div class="hero-terminal">
+            <div class="hero-term-head">
+              <span class="hero-term-dot"></span>
+              <span class="hero-term-dot"></span>
+              <span class="hero-term-dot"></span>
+            </div>
+            <div class="hero-term-line" data-i18n="idx.panel.l1"><span class="prompt">$</span> nmap -sV <span class="hl">hedef.edu</span></div>
+            <div class="hero-term-line" data-i18n="idx.panel.l2"><span class="prompt">→</span> <span class="hl">443/tcp</span> open ssl/http</div>
+            <div class="hero-term-line" data-i18n="idx.panel.l3"><span class="prompt">$</span> wireshark -i eth0 -f <span class="hl">tcp port 443</span></div>
+            <div class="hero-term-bar" aria-hidden="true"><span></span></div>
+          </div>
+        </div>
+      </div>
+
+      <section class="stats-row reveal">
+        <div class="stat">
+          <div class="stat-num" data-target="320">0<span>+</span></div>
+          <div class="stat-desc" data-i18n="idx.stat1.desc">Canlı lab ve eğitim içeriği (saat)</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num" data-target="60">0<span>+</span></div>
+          <div class="stat-desc" data-i18n="idx.stat2.desc">CTF senaryosu ve atölye</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num" data-target="96">0<span>%</span></div>
+          <div class="stat-desc" data-i18n="idx.stat3.desc">Katılımcı memnuniyeti</div>
+        </div>
+        <div class="stat">
+          <div class="stat-num">Top<span> 10</span></div>
+          <div class="stat-desc" data-i18n="idx.stat4.desc">Ulusal CTF sıralama hedefi</div>
+        </div>
+      </section>
+
+      <section class="reveal">
+        <p class="section-label" data-i18n="idx.curriculum.label">Müfredat</p>
+        <h2 class="section-title" data-i18n="idx.curriculum.title">Temelden İleri Düzeye<br>Yapılandırılmış Yol</h2>
+        <p class="section-sub" data-i18n="idx.curriculum.sub">Ön bilgi gerektirmeyen program; katılımcıları gerçek dünya tehditlerini değerlendirip savunma stratejileri oluşturabilecek düzeye taşır.</p>
+
+        <div style="margin-top: 40px;" class="track-grid">
+          <div class="track-col">
+            <p class="track-label blue" data-i18n="idx.track1.label">Temel Seviye</p>
+            <h3 data-i18n="idx.track1.title">Altyapı & Ağ</h3>
+            <ul>
+              <li data-i18n="idx.track1.li1">Bilgisayarlar nasıl haberleşir?</li>
+              <li data-i18n="idx.track1.li2">TCP/IP, DNS, HTTP/HTTPS, OSI modeli</li>
+              <li data-i18n="idx.track1.li3">Paket analizi ve Wireshark pratiği</li>
+              <li data-i18n="idx.track1.li4">Web siteleri nasıl çalışır?</li>
+              <li data-i18n="idx.track1.li5">Linux kurulum ve terminal kullanımı</li>
+            </ul>
+          </div>
+          <div class="track-col">
+            <p class="track-label red" data-i18n="idx.track2.label">Orta Seviye</p>
+            <h3 data-i18n="idx.track2.title">Saldırı & Savunma</h3>
+            <ul>
+              <li data-i18n="idx.track2.li1">Ağ içi saldırılar ve MITM senaryoları</li>
+              <li data-i18n="idx.track2.li2">Zafiyet anlama ve tespit etme</li>
+              <li data-i18n="idx.track2.li3">Pentest araçları: Nmap, Metasploit, Burp</li>
+              <li data-i18n="idx.track2.li4">CTF çözüm teknikleri ve writeup yazımı</li>
+              <li data-i18n="idx.track2.li5">Privilege escalation ve post-exploitation</li>
+            </ul>
+          </div>
+          <div class="track-col">
+            <p class="track-label gray" data-i18n="idx.track3.label">İleri Seviye</p>
+            <h3 data-i18n="idx.track3.title">Cloud & SOC</h3>
+            <ul>
+              <li data-i18n="idx.track3.li1">Cloud'da web sunucusu kurulum & hardening</li>
+              <li data-i18n="idx.track3.li2">Güvenli ağ mimarisi tasarımı</li>
+              <li data-i18n="idx.track3.li3">Log toplama ve saldırı izleme</li>
+              <li data-i18n="idx.track3.li4">Olay müdahale ve denetim izi yönetimi</li>
+              <li data-i18n="idx.track3.li5">Bug bounty ekiplerine geçiş yol haritası</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="feature-split reveal">
+        <div class="left">
+          <p class="section-label" data-i18n="idx.features.label">Neden SeCScop?</p>
+          <h2 class="section-title" data-i18n="idx.features.title">Teori ile sınırlı kalmayan<br>uygulamalı model.</h2>
+          <p class="section-sub" style="margin-top: 12px;" data-i18n="idx.features.sub">Konular canlı laboratuvarlarla desteklenir. CTF’de öne çıkan katılımcılara sertifika ve bug bounty geçişine yönelik danışmanlık sunulur.</p>
+          <div class="tag-row">
+            <span class="tag" data-i18n="idx.tag1">Offensive Security</span>
+            <span class="tag" data-i18n="idx.tag2">Blue Team</span>
+            <span class="tag" data-i18n="idx.tag3">Cloud Security</span>
+            <span class="tag">CTF</span>
+            <span class="tag">Bug Bounty</span>
+          </div>
+        </div>
+        <div class="feature-list">
+          <div class="feature-item">
+            <h3><span class="num">01</span> <span data-i18n="idx.feat1.title">Laboratuvar ortamı</span></h3>
+            <p data-i18n="idx.feat1.p">Derslerle uyumlu gerçek makine ve kontrollü zafiyet senaryolarına kesintisiz erişim.</p>
+          </div>
+          <div class="feature-item">
+            <h3><span class="num">02</span> <span data-i18n="idx.feat2.title">CTF hazırlık süreci</span></h3>
+            <p data-i18n="idx.feat2.p">Haftalık çözüm oturumları, takım kurma ve ulusal yarışmalara yönelik rehberlik.</p>
+          </div>
+          <div class="feature-item">
+            <h3><span class="num">03</span> <span data-i18n="idx.feat3.title">Sertifika ve referans</span></h3>
+            <p data-i18n="idx.feat3.p">Başarılı katılımcılara sertifika ve kariyer referansı; bug bounty ekosistemine geçişte destek.</p>
+          </div>
+          <div class="feature-item">
+            <h3><span class="num">04</span> <span data-i18n="idx.feat4.title">Bulut güvenlik laboratuvarı</span></h3>
+            <p data-i18n="idx.feat4.p">Bulut üzerinde kurulum, sertleştirme, mimari tasarım ve log izleme uygulamaları.</p>
+          </div>
+          <div class="feature-item">
+            <h3><span class="num">05</span> <span data-i18n="idx.feat5.title">Mentorluk</span></h3>
+            <p data-i18n="idx.feat5.p">Sektör deneyimli mentorlarla birebir teknik ve kariyer planlama oturumları.</p>
+          </div>
+        </div>
+      </section>
+
+      <div class="cta-block reveal">
+        <h2 data-i18n="idx.cta.title">Yeni dönem için başvurular açıktır.</h2>
+        <a class="btn btn-primary" href="https://docs.google.com/forms/d/e/1FAIpQLSe8ltGvAOgPt6TqRbHCiXDwTNsQTdGgLSp1_p1Wx2CSuaYYqg/viewform" target="_blank" rel="noopener noreferrer" data-i18n="idx.cta.btn">Başvuru Formu</a>
+      </div>
+
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <p class="footer-copy" data-i18n="footer.copy">© 2026 SeCScop Akademi</p>
+      <nav class="footer-links">
+        <a href="hizmetlerimiz.html" data-i18n="nav.services">Hizmetlerimiz</a>
+        <a href="misyonumuz.html" data-i18n="nav.mission">Misyonumuz</a>
+        <a href="vizyonumuz.html" data-i18n="nav.vision">Vizyonumuz</a>
+        <a href="egitmen.html" data-i18n="nav.instructor">Eğitmen</a>
+      </nav>
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>

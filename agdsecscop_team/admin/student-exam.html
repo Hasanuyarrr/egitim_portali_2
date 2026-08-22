@@ -1,0 +1,1039 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — Sınav</title>
+  <link rel="stylesheet" href="admin.css">
+  <link rel="stylesheet" href="student-shell.css">
+  <style>
+    .sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:45; }
+    @media (max-width:980px){ .sidebar-overlay.visible{display:block;} }
+    .proctor-banner {
+      display:flex; gap:12px; align-items:flex-start; flex-wrap:wrap;
+      border:1px solid rgba(199,48,80,.25);
+      background: linear-gradient(90deg, rgba(199,48,80,.10), rgba(58,93,191,.06));
+      border-radius: 14px;
+      padding: 12px 14px;
+      margin-bottom: 12px;
+      color: var(--text-2);
+      font-size: .86rem;
+      line-height: 1.5;
+    }
+    #proctorText { line-height: 1.55; }
+    .proctor-kpi { display:flex; gap:8px; flex-wrap:wrap; margin-left:auto; align-items:center; }
+    .kpi-pill { background: var(--bg); border:1px solid var(--border); border-radius: 99px; padding: 4px 10px; font-family: var(--mono); font-size: .78rem; color: var(--text-2); }
+    .exam-q { border:1px solid var(--border); border-radius:12px; background:var(--bg); padding:12px; margin-bottom:10px; }
+    .exam-q strong { display:block; margin-bottom:8px; }
+    .exam-opt { display:flex; gap:10px; align-items:flex-start; padding:8px 10px; border:1px solid var(--border); border-radius:12px; background:var(--bg-card); margin-bottom:8px; cursor:pointer; }
+    .exam-opt:hover { border-color: var(--red); }
+    .exam-opt input { margin-top:3px; accent-color: var(--red); }
+    .exam-actions { position: sticky; bottom: 0; background: linear-gradient(180deg, rgba(0,0,0,0) 0%, var(--bg) 40%); padding-top: 12px; }
+    .cam-box { width: 160px; height: 110px; border-radius: 14px; overflow:hidden; border:1px solid var(--border); background: var(--bg-2); }
+    .cam-box video { width:100%; height:100%; object-fit: cover; transform: scaleX(-1); }
+    @media (max-width: 920px){ .cam-box{ width: 140px; height: 96px; } }
+    #fsTermOverlay { display:none; position:fixed; inset:0; z-index:10000; background:rgba(0,0,0,.72); align-items:center; justify-content:center; padding:16px; }
+    #fsTermOverlay.open { display:flex; }
+    /* Üst barda “Sınav · sınav adı” taşmasın, okunaklı kalsın */
+    .student-exam-page .topbar .topbar-page-hint {
+      white-space: normal;
+      max-width: min(92vw, 560px);
+      line-height: 1.28;
+    }
+    /* Sınav oturumu: yan menü yok, içerik tam genişlik */
+    body.exam-session-active #sidebar,
+    body.exam-session-active #sidebarOverlay {
+      display: none !important;
+      visibility: hidden !important;
+      pointer-events: none !important;
+    }
+    body.exam-session-active .admin-main {
+      margin-left: 0 !important;
+    }
+    body.exam-session-active .hamburger {
+      display: none !important;
+    }
+    body.exam-session-active #examBackLink {
+      display: none !important;
+    }
+    /* Odak modu: üst çubuğu sadeleştir (sınav alanı genişlesin) */
+    body.exam-session-active .topbar-right .notif-wrap,
+    body.exam-session-active .topbar-avatar {
+      display: none !important;
+    }
+  </style>
+</head>
+<body class="student-exam-page">
+<div class="admin-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <main class="admin-main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button type="button" class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+        <div>
+          <div class="topbar-title" data-i18n="student.topbar.brand">Öğrenci Paneli</div>
+          <div class="topbar-page-hint" id="studentPageHint"></div>
+          <div class="topbar-sub" id="topbarSub"></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="notif-wrap" id="notifWrap">
+          <button type="button" class="btn btn-ghost btn-sm notif-btn" id="notifBtn" onclick="toggleNotifPanel()" data-i18n-title="student.page.announcements" title="Duyurular">🔔
+            <span class="notif-badge" id="notifBadge" aria-hidden="true"></span>
+          </button>
+          <div class="notif-panel" id="notifPanel">
+            <div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:.76rem;font-weight:700;color:var(--text-2);display:flex;justify-content:space-between;align-items:center;">
+              <span id="notifPanelTitle">Yeni Duyurular</span>
+              <a id="notifSeeAll" href="student-announcements.html" style="font-size:.72rem;color:var(--blue);text-decoration:none;">Tümünü gör</a>
+            </div>
+            <div id="notifList" style="padding:0;"></div>
+          </div>
+        </div>
+        <div class="topbar-avatar">
+          <div class="avatar avatar-blue" style="width:28px;height:28px;font-size:0.7rem;" id="avatarInitials">—</div>
+          <span class="topbar-avatar-name" id="avatarName">Öğrenci</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="page">
+      <div class="proctor-banner" id="proctorBanner" style="display:none;">
+        <div>
+          <div style="font-weight:800;color:var(--text);">Sınav güvenliği</div>
+          <div id="proctorText">—</div>
+          <div id="fsWarn" style="display:none;margin-top:8px;padding:8px 10px;border-radius:10px;border:1px solid rgba(199,48,80,.35);background:rgba(199,48,80,.08);color:var(--red);font-weight:700;font-size:.82rem;"></div>
+        </div>
+        <div class="proctor-kpi">
+          <span class="kpi-pill" id="timerPill">⏱ —:—</span>
+          <span class="kpi-pill" id="violPill">⚠ 0/0</span>
+          <div class="cam-box" id="camBox" style="display:none;"><video id="camVideo" autoplay playsinline muted></video></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h3 id="examTitle">Sınav</h3>
+          <a href="student-exams.html" id="examBackLink" class="btn btn-ghost btn-sm" style="text-decoration:none;">← Geri</a>
+        </div>
+        <div class="card-body" id="examBody">
+          <div style="text-align:center;padding:16px;color:var(--text-3);font-size:0.84rem;" data-i18n="common.loading">Yükleniyor…</div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div id="fsTermOverlay" class="modal-overlay" role="dialog" aria-modal="true" aria-labelledby="fsTermTitle">
+  <div class="modal" style="max-width:460px;">
+    <div class="modal-header">
+      <h3 id="fsTermTitle" style="margin:0;">Tam ekran ihlali</h3>
+    </div>
+    <div class="modal-body">
+      <p id="fsTermMsg" style="font-size:.9rem;line-height:1.55;color:var(--text-2);margin:0 0 12px;">
+        Tam ekrandan çıktınız. Bu bir <strong style="color:var(--text);">ihlal</strong> olarak kaydedildi.
+        <strong style="color:var(--red);">Sınavınız sonlandırılıyor.</strong>
+        Aşağıda kalan süre içinde tekrar tam ekrana dönmezseniz sınavınız otomatik olarak gönderilecektir.
+      </p>
+      <div id="fsTermCount" style="font-size:2.4rem;font-weight:900;text-align:center;color:var(--red);font-family:var(--mono);line-height:1.2;">10</div>
+      <div style="font-size:.78rem;color:var(--text-3);text-align:center;margin-top:4px;">saniye</div>
+      <div id="graceStatusLine" style="font-size:.78rem;color:var(--text-2);text-align:center;margin-top:10px;line-height:1.45;min-height:2.6em;"></div>
+      <button type="button" class="btn btn-primary" id="fsTermActionBtn" style="width:100%;margin-top:14px;" onclick="tryReEnterFullscreen()">Tam ekrana dön</button>
+    </div>
+  </div>
+</div>
+
+<script src="theme-i18n.js"></script>
+<script src="student-shared.js"></script>
+<script>
+  var API = window.API;
+  var token = window.token;
+  var apiFetch = window.apiFetch;
+
+  initStudentShell({ activePage: "exams", pageLabelKey: "student.nav.exams" });
+  if (typeof t === "function") document.title = "SeCScop — " + t("student.nav.exams");
+
+  var qs = new URLSearchParams(location.search);
+  var rawId = qs.get("id");
+  var examId = rawId ? parseInt(String(rawId), 10) : 0;
+  if (!Number.isFinite(examId) || examId <= 0) examId = 0;
+
+  var exam = null;
+  var attempt = null;
+  var answers = [];
+  var deadlineMs = 0;
+  var timerInt = null;
+  var stream = null;
+  var viol = 0;
+  var maxV = 0;
+  var fsSkipped = false;
+  /** Tam ekran dışına çıkışı bir kez loglamak için (tekrar F11’e dönene kadar) */
+  var fsExitLatch = false;
+  var fsPollInterval = null;
+  /** Sekme/pencere dışına çıkış: bir “gizli” oturumu için tek ihlal (tekrar sekmeye dönülünce sıfırlanır) */
+  var tabHiddenLatch = false;
+  var visibilityPollInterval = null;
+  /** Tam ekran / kadraj ihlali sonrası sınavı bitirmeden önce verilen süre (sn) */
+  var GRACE_SEC = 10;
+  var graceTimer = null;
+  var graceSecLeft = 0;
+  /** "fullscreen" | "face" | null */
+  var graceKind = null;
+
+  /** Yerel yüz tespiti (video sunucuya gönderilmez; sadece tarayıcıda işlenir) */
+  var faceModel = null;
+  var faceCheckInterval = null;
+  var faceExitLatch = false;
+  var noFaceStreak = 0;
+  var faceDetectRunning = false;
+  var FACE_CHECK_MS = 500;
+  /** Ardışık "yüz yok" örnekleri (~2 sn @ 500ms) — yanlış alarm azaltır */
+  var NO_FACE_STREAK_NEEDED = 4;
+  /** Son yüz tespiti (grace iptali: tam ekran VEYA kadraj) */
+  var lastFaceInFrame = false;
+
+  // Ortak, tırnak/backtick kaçışlı sürüm (student-shared.js).
+  var esc = window.escapeHtml;
+
+  function pad(n) { return String(n).padStart(2, "0"); }
+
+  function fmtLeft(ms) {
+    var s = Math.max(0, Math.floor(ms / 1000));
+    var m = Math.floor(s / 60);
+    var r = s % 60;
+    return pad(m) + ":" + pad(r);
+  }
+
+  function setBody(html) { document.getElementById("examBody").innerHTML = html; }
+  function setBanner(on) { document.getElementById("proctorBanner").style.display = on ? "flex" : "none"; }
+
+  function updateKpis() {
+    document.getElementById("violPill").textContent = "⚠ " + viol + "/" + maxV;
+    var left = deadlineMs ? deadlineMs - Date.now() : 0;
+    document.getElementById("timerPill").textContent = "⏱ " + fmtLeft(left);
+  }
+
+  function updateFullscreenWarningUi() {
+    var w = document.getElementById("fsWarn");
+    if (!w) return;
+    var pr = exam && exam.proctor ? exam.proctor : {};
+    if (!attempt || !attempt.attempt_id || !pr.require_fullscreen || fsSkipped) {
+      w.style.display = "none";
+      w.textContent = "";
+      return;
+    }
+    if (isFullscreenActive()) {
+      w.style.display = "none";
+      w.textContent = "";
+      return;
+    }
+    w.style.display = "block";
+    w.innerHTML =
+      "⛶ Tam ekran kapalı — bu bir <strong>ihlal</strong> olarak kaydedildi. " +
+      '<button type="button" class="btn btn-primary btn-sm" style="margin-left:8px;vertical-align:middle;" onclick="tryReEnterFullscreen()">Tekrar tam ekran</button>';
+  }
+
+  function tryReEnterFullscreen() {
+    var el = document.documentElement;
+    var req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (!req) return;
+    req.call(el).catch(function () {});
+  }
+  window.tryReEnterFullscreen = tryReEnterFullscreen;
+
+  var examKeyboardGuardInstalled = false;
+
+  /**
+   * Tarayıcı sekmesi / yeni sekme kısayolları (tam engellenemez: Alt+Tab işletim sistemindedir).
+   */
+  function examSessionKeydownBlock(e) {
+    if (!document.body.classList.contains("exam-session-active")) return;
+    var k = e.key;
+    var code = e.code || "";
+    if (e.ctrlKey || e.metaKey) {
+      if (k === "Tab" || k === "PageUp" || k === "PageDown") {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      if (/^[1-9]$/.test(k)) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      if ("tTnNwW".indexOf(k) !== -1) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      if (k === "r" || k === "R") {
+        e.preventDefault();
+        return;
+      }
+      if (k === "`" || code === "Backquote") {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+    }
+    if (e.altKey && (k === "ArrowLeft" || k === "ArrowRight")) {
+      e.preventDefault();
+      return;
+    }
+    if (k === "F5" || ((e.ctrlKey || e.metaKey) && (k === "r" || k === "R"))) {
+      e.preventDefault();
+      return;
+    }
+  }
+
+  function enterExamSessionMode() {
+    document.body.classList.add("exam-session-active");
+    if (!examKeyboardGuardInstalled) {
+      examKeyboardGuardInstalled = true;
+      document.addEventListener("keydown", examSessionKeydownBlock, true);
+    }
+    var el = document.documentElement;
+    var req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (req) {
+      req.call(el).catch(function () {});
+    }
+    setTimeout(function () {
+      tryReEnterFullscreen();
+    }, 80);
+  }
+
+  function exitExamSessionMode() {
+    document.body.classList.remove("exam-session-active");
+  }
+
+  function clearGraceModal() {
+    if (graceTimer) {
+      clearInterval(graceTimer);
+      graceTimer = null;
+    }
+    graceSecLeft = 0;
+    graceKind = null;
+    var o = document.getElementById("fsTermOverlay");
+    if (o) {
+      o.classList.remove("open");
+      o.style.display = "none";
+    }
+    updateGraceStatusLine();
+  }
+
+  function updateFsTermCountDisplay() {
+    var el = document.getElementById("fsTermCount");
+    if (el) el.textContent = String(Math.max(0, graceSecLeft));
+  }
+
+  /**
+   * Tam ekran veya kadraj ihlali: 10 sn geri sayım; koşul düzelirse iptal (graceKind’a göre).
+   */
+  function startGraceTermination(kind) {
+    clearGraceModal();
+    graceKind = kind;
+
+    var o = document.getElementById("fsTermOverlay");
+    var titleEl = document.getElementById("fsTermTitle");
+    var msgEl = document.getElementById("fsTermMsg");
+    var btnEl = document.getElementById("fsTermActionBtn");
+    if (!o || !titleEl || !msgEl) return;
+
+    if (kind === "face") {
+      titleEl.textContent = "Kamera kadrajı";
+      msgEl.innerHTML =
+        'Kadrajda yüz tespit edilemedi. Bu bir <strong style="color:var(--text);">ihlal</strong> olarak kaydedildi. ' +
+        '<strong style="color:var(--red);">Sınavınız sonlandırılıyor.</strong> ' +
+        "10 saniye içinde tekrar kameranın önüne geçmezseniz sınavınız otomatik gönderilecektir.";
+      if (btnEl) btnEl.style.display = "none";
+    } else {
+      titleEl.textContent = "Tam ekran ihlali";
+      msgEl.innerHTML =
+        'Tam ekrandan çıktınız. Bu bir <strong style="color:var(--text);">ihlal</strong> olarak kaydedildi. ' +
+        '<strong style="color:var(--red);">Sınavınız sonlandırılıyor.</strong> ' +
+        "10 saniye içinde tekrar tam ekrana dönmezseniz sınavınız otomatik olarak gönderilecektir.";
+      if (btnEl) {
+        btnEl.style.display = "block";
+        btnEl.textContent = "Tam ekrana dön";
+        btnEl.onclick = function () {
+          tryReEnterFullscreen();
+        };
+      }
+    }
+
+    o.style.display = "flex";
+    o.classList.add("open");
+    graceSecLeft = GRACE_SEC;
+    updateFsTermCountDisplay();
+    updateGraceStatusLine();
+
+    graceTimer = setInterval(function () {
+      if (shouldClearGrace()) {
+        tryRecoverGrace();
+        return;
+      }
+      updateGraceStatusLine();
+      graceSecLeft -= 1;
+      updateFsTermCountDisplay();
+      if (graceSecLeft <= 0) {
+        if (shouldClearGrace()) {
+          tryRecoverGrace();
+          return;
+        }
+        clearGraceModal();
+        submitExam(true);
+      }
+    }, 1000);
+  }
+
+  function startFullscreenGraceTermination() {
+    startGraceTermination("fullscreen");
+  }
+
+  /**
+   * Tam ekrandan çıkış: olay + periyodik kontrol (Escape / F11 / bazı tarayıcılarda event kaçırma).
+   * Tekrar tam ekrana girilene kadar aynı “çıkış” için tek ihlal; yeniden çıkışta yeni ihlal.
+   * Not: Tam ekran ihlalinde sınav, 10 sn geri sayım sonunda biter (anında autoSubmit yok).
+   */
+  function checkFullscreenViolation(source) {
+    if (!attempt || !attempt.attempt_id) return;
+    tryRecoverGrace();
+    if (graceTimer) updateGraceStatusLine();
+    var pr = exam && exam.proctor ? exam.proctor : {};
+    if (!pr.require_fullscreen || fsSkipped) return;
+
+    if (graceTimer) {
+      updateFullscreenWarningUi();
+      return;
+    }
+
+    if (isFullscreenActive()) {
+      fsExitLatch = false;
+      updateFullscreenWarningUi();
+      return;
+    }
+
+    if (fsExitLatch) {
+      updateFullscreenWarningUi();
+      return;
+    }
+
+    fsExitLatch = true;
+    logProctor("fullscreen_exit", true, { source: source || "watch" })
+      .then(function () {
+        updateKpis();
+        updateFullscreenWarningUi();
+        startFullscreenGraceTermination();
+      })
+      .catch(function () {
+        updateFullscreenWarningUi();
+        startFullscreenGraceTermination();
+      });
+  }
+
+  function isFullscreenActive() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+  }
+
+  /**
+   * Grace kapanır yalnızca tüm zorunlu koşullar sağlandığında (ikisi de açıksa VE).
+   * Böylece ihlal bitene kadar 10 sn takip edilir; kısmi düzeltme süreyi sıfırlamaz.
+   */
+  function shouldClearGrace() {
+    if (!graceTimer) return false;
+    var pr = exam && exam.proctor ? exam.proctor : {};
+    var needFs = !!(pr.require_fullscreen && !fsSkipped);
+    var needCam = !!pr.require_camera;
+    if (needFs && needCam) return isFullscreenActive() && lastFaceInFrame;
+    if (needFs) return isFullscreenActive();
+    if (needCam) return lastFaceInFrame;
+    return true;
+  }
+
+  /** Geri sayım açıkken hangi koşulların hâlâ eksik olduğunu gösterir. */
+  function updateGraceStatusLine() {
+    var el = document.getElementById("graceStatusLine");
+    if (!el) return;
+    if (!graceTimer) {
+      el.textContent = "";
+      return;
+    }
+    var pr = exam && exam.proctor ? exam.proctor : {};
+    var needFs = !!(pr.require_fullscreen && !fsSkipped);
+    var needCam = !!pr.require_camera;
+    var parts = [];
+    if (needFs) parts.push(isFullscreenActive() ? "Tam ekran: tamam" : "Tam ekran: gerekli");
+    if (needCam) parts.push(lastFaceInFrame ? "Kadraj (yüz): tamam" : "Kadraj (yüz): eksik");
+    el.textContent = parts.join(" · ");
+  }
+
+  function tryRecoverGrace() {
+    if (!graceTimer) return;
+    if (!shouldClearGrace()) return;
+    clearGraceModal();
+    var pr = exam && exam.proctor ? exam.proctor : {};
+    var needFs = !!(pr.require_fullscreen && !fsSkipped);
+    var needCam = !!pr.require_camera;
+    fsExitLatch = needFs && !isFullscreenActive();
+    faceExitLatch = needCam && !lastFaceInFrame;
+    noFaceStreak = 0;
+    updateFullscreenWarningUi();
+  }
+
+  function loadScript(src) {
+    return new Promise(function (resolve, reject) {
+      var s = document.createElement("script");
+      s.src = src;
+      s.async = true;
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  /** Yerel BlazeFace; video akışı sunucuya gönderilmez. */
+  async function initFaceDetector() {
+    if (faceModel) return true;
+    try {
+      if (typeof blazeface === "undefined") {
+        await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js");
+        await loadScript("https://cdn.jsdelivr.net/npm/@tensorflow-models/blazeface@0.0.7/dist/blazeface.min.js");
+      }
+      if (typeof blazeface === "undefined" || typeof blazeface.load !== "function") return false;
+      faceModel = await blazeface.load();
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function faceTick() {
+    if (!attempt || !attempt.attempt_id) return;
+    var pr = exam && exam.proctor ? exam.proctor : {};
+    if (!pr.require_camera || !stream) return;
+    if (faceDetectRunning) return;
+    if (!faceModel) return;
+    var v = document.getElementById("camVideo");
+    if (!v || v.readyState < 2 || v.videoWidth < 64) {
+      lastFaceInFrame = false;
+      tryRecoverGrace();
+      return;
+    }
+
+    faceDetectRunning = true;
+    (async function () {
+      try {
+        var predictions = await faceModel.estimateFaces(v, false, true);
+        var hasFace = !!(predictions && predictions.length > 0);
+        lastFaceInFrame = hasFace;
+        tryRecoverGrace();
+        if (graceTimer) updateGraceStatusLine();
+
+        if (hasFace) {
+          noFaceStreak = 0;
+          faceExitLatch = false;
+          faceDetectRunning = false;
+          return;
+        }
+        noFaceStreak += 1;
+        if (noFaceStreak < NO_FACE_STREAK_NEEDED) {
+          faceDetectRunning = false;
+          return;
+        }
+        if (faceExitLatch || graceTimer) {
+          faceDetectRunning = false;
+          return;
+        }
+        faceExitLatch = true;
+        await logProctor("face_not_in_frame", true, { streak: noFaceStreak });
+        updateKpis();
+        startGraceTermination("face");
+      } catch (e) {}
+      faceDetectRunning = false;
+    })();
+  }
+
+  function initFaceWatch() {
+    initFaceDetector().then(function (ok) {
+      if (!ok || !attempt || !attempt.attempt_id) return;
+      if (faceCheckInterval) {
+        clearInterval(faceCheckInterval);
+        faceCheckInterval = null;
+      }
+      faceCheckInterval = setInterval(faceTick, FACE_CHECK_MS);
+    });
+  }
+
+  async function logProctor(event_type, is_violation, details) {
+    if (!attempt || !attempt.attempt_id) return { violations_count: viol, max_violations: maxV };
+    var res = await fetch(API + "/exams/" + examId + "/proctor", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        attempt_id: attempt.attempt_id,
+        event_type: event_type,
+        is_violation: !!is_violation,
+        details: details || {},
+      }),
+    });
+    var data = await res.json().catch(function () { return {}; });
+    if (res.ok && data && typeof data.violations_count === "number") {
+      viol = data.violations_count;
+      maxV = Number(data.max_violations || maxV || 0);
+      updateKpis();
+    }
+    return data;
+  }
+
+  function hardBlockCopyPaste() {
+    var block = function (e) { e.preventDefault(); return false; };
+    ["copy", "cut", "paste"].forEach(function (ev) { document.addEventListener(ev, block, true); });
+    document.addEventListener("contextmenu", block, true);
+    document.addEventListener("keydown", function (e) {
+      var k = String(e.key || "").toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && (k === "c" || k === "v" || k === "x" || k === "a" || k === "p" || k === "s")) {
+        e.preventDefault();
+        logProctor("key_blocked", true, { key: k });
+      }
+    }, true);
+  }
+
+  async function ensureFullscreen() {
+    if (!exam || !exam.proctor || !exam.proctor.require_fullscreen) return true;
+    if (isFullscreenActive()) return true;
+    var el = document.documentElement;
+    var req = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+    if (!req) {
+      fsSkipped = true;
+      try { await logProctor("fullscreen_unsupported", false, { ua: navigator.userAgent }); } catch (e1) {}
+      return true;
+    }
+    try {
+      await req.call(el);
+      return true;
+    } catch (e2) {
+      return false;
+    }
+  }
+
+  async function ensureCamera() {
+    if (!exam || !exam.proctor || !exam.proctor.require_camera) return true;
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return false;
+    }
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+      var v = document.getElementById("camVideo");
+      v.srcObject = stream;
+      document.getElementById("camBox").style.display = "block";
+      var track = stream.getVideoTracks()[0];
+      if (track) {
+        track.addEventListener("ended", function () {
+          logProctor("camera_ended", true, {});
+          autoSubmitIfNeeded();
+        });
+      }
+      return true;
+    } catch (e3) {
+      return false;
+    }
+  }
+
+  function stopCamera() {
+    try {
+      if (stream) stream.getTracks().forEach(function (t) { t.stop(); });
+    } catch (e4) {}
+    stream = null;
+  }
+
+  function syncExamPageTopbar() {
+    var hint = document.getElementById("studentPageHint");
+    if (!hint) return;
+    var lab = typeof t === "function" ? t("student.nav.exams") : "Sınav";
+    if (exam && exam.title) {
+      hint.textContent = lab + " · " + exam.title;
+    } else {
+      hint.textContent = lab;
+    }
+  }
+
+  function renderExam() {
+    syncExamPageTopbar();
+    document.getElementById("examTitle").textContent = (exam && exam.title) ? exam.title : "Sınav";
+    var desc = "";
+    if (exam && exam.description) {
+      desc = '<div style="color:var(--text-2);font-size:.88rem;line-height:1.55;margin-top:6px;">' + esc(exam.description) + "</div>";
+    }
+    var info =
+      '<div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:12px;">' +
+      "<div>" +
+      '<div style="font-size:.78rem;color:var(--text-3);">⏱ ' + Number((exam && exam.duration_minutes) || 0) + " dk · 🎯 Baraj " + Number((exam && exam.pass_score) || 0) + "</div>" +
+      desc +
+      "</div>" +
+      '<button type="button" class="btn btn-primary btn-sm" id="startBtn" onclick="startFlow()">Sınavı başlat</button>' +
+      "</div>";
+    setBody(info + '<div id="qWrap"></div>');
+    setBanner(true);
+
+    var pr = exam && exam.proctor ? exam.proctor : {};
+    var proctorLines = [];
+    proctorLines.push(
+      '⚠️ <strong>Sekme ve odak:</strong> Başka tarayıcı <strong>sekmesine</strong> geçmek veya <strong>başka programa</strong> geçmek (ör. <strong>Ctrl+Tab</strong>, <strong>Alt+Tab</strong>, başka sekmeye tıklamak) sistem tarafından algılanır ve <strong style="color:var(--red);">ihlal</strong> olarak kaydedilir. Sınav bitene kadar <strong>yalnızca bu sekmede</strong> kalın; ihlal sayısı dolunca sınav otomatik bitebilir.'
+    );
+    if (pr.require_fullscreen) proctorLines.push("⛶ <strong>Tam ekran:</strong> Tam ekrandan çıkmak ihlal sayılır (geri sayımlı uyarı).");
+    if (pr.require_camera) {
+      proctorLines.push(
+        "📷 <strong>Kamera:</strong> Açık kalmalı; kadrajda yüz tespiti yerelde yapılır (video kaydı sunucuya gönderilmez)."
+      );
+    }
+    if (pr.block_copy_paste) proctorLines.push("📋 <strong>Kopyala / yapıştır / kısayollar:</strong> Engellenir; ihlal oluşturabilir.");
+    document.getElementById("proctorText").innerHTML = proctorLines.join('<br><span style="display:block;height:10px;"></span>');
+
+    viol = 0;
+    maxV = Number(pr.max_violations != null ? pr.max_violations : 0);
+    updateKpis();
+  }
+
+  function renderQuestions() {
+    var wrap = document.getElementById("qWrap");
+    if (!wrap) return;
+    var list = (exam && exam.questions) ? exam.questions : [];
+    if (!list.length) {
+      wrap.innerHTML = '<div class="empty-state"><span class="empty-icon">🧪</span><p>Bu sınavda soru yok.</p></div>';
+      return;
+    }
+    wrap.innerHTML = list
+      .map(function (q, i) {
+        return (
+          '<div class="exam-q">' +
+          "<strong>" +
+          (i + 1) +
+          ". " +
+          esc(q.question || "") +
+          "</strong>" +
+          (q.options || [])
+            .map(function (opt, oi) {
+              return (
+                '<label class="exam-opt" onclick="pick(' +
+                i +
+                ", " +
+                oi +
+                ')">' +
+                '<input type="radio" name="q_' +
+                i +
+                '" value="' +
+                oi +
+                '" ' +
+                (Number(answers[i]) === oi ? "checked" : "") +
+                ' onchange="pick(' +
+                i +
+                ", " +
+                oi +
+                ')">' +
+                '<div style="color:var(--text);font-size:.88rem;line-height:1.45;">' +
+                esc(opt || "") +
+                "</div>" +
+                "</label>"
+              );
+            })
+            .join("") +
+          "</div>"
+        );
+      })
+      .join("") +
+      '<div class="exam-actions">' +
+      '<div style="display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap;">' +
+      '<button type="button" class="btn btn-ghost" onclick="confirmLeave()">Sınavdan çık</button>' +
+      '<button type="button" class="btn btn-primary" id="submitBtn" onclick="submitExam(false)">Gönder</button>' +
+      "</div>" +
+      "</div>";
+  }
+
+  function pick(i, oi) {
+    answers[i] = oi;
+    var el = document.querySelector('input[name="q_' + i + '"][value="' + oi + '"]');
+    if (el) el.checked = true;
+  }
+  window.pick = pick;
+
+  function startTimer() {
+    if (timerInt) clearInterval(timerInt);
+    timerInt = setInterval(function () {
+      var left = deadlineMs - Date.now();
+      updateKpis();
+      updateFullscreenWarningUi();
+      if (left <= 0) {
+        clearInterval(timerInt);
+        timerInt = null;
+        logProctor("time_up", true, {});
+        submitExam(true);
+      }
+    }, 500);
+  }
+
+  async function startFlow() {
+    var btn = document.getElementById("startBtn");
+    if (!btn || !exam) return;
+    btn.disabled = true;
+    btn.textContent = "Hazırlanıyor…";
+
+    var pr = exam.proctor || {};
+    if (pr.block_copy_paste) hardBlockCopyPaste();
+
+    var fsOk = await ensureFullscreen();
+    if (!fsOk) {
+      btn.disabled = false;
+      btn.textContent = "Sınavı başlat";
+      alert("Tam ekran açılamadı. Tarayıcı izin vermedi veya tam ekran desteklenmiyor.");
+      return;
+    }
+
+    var camOk = await ensureCamera();
+    if (!camOk) {
+      btn.disabled = false;
+      btn.textContent = "Sınavı başlat";
+      alert("Kamera izni gerekli. HTTPS veya localhost üzerinden deneyin; tarayıcıda kamera iznini verin.");
+      return;
+    }
+
+    var meta = { ua: navigator.userAgent, tz: Intl.DateTimeFormat().resolvedOptions().timeZone };
+    var startRes = await fetch(API + "/exams/" + examId + "/start", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ meta: meta }),
+    });
+    var startData = await startRes.json().catch(function () { return {}; });
+    if (!startRes.ok) {
+      btn.disabled = false;
+      btn.textContent = "Sınavı başlat";
+      alert((startData && startData.error) || "Başlatılamadı.");
+      return;
+    }
+    attempt = startData;
+    deadlineMs = new Date(startData.deadline_at).getTime();
+    maxV = Number((startData.proctor && startData.proctor.max_violations != null ? startData.proctor.max_violations : maxV) || 0);
+    await logProctor("started", false, {});
+
+    btn.parentNode.removeChild(btn);
+    answers = (exam.questions || []).map(function () { return null; });
+    renderQuestions();
+    enterExamSessionMode();
+    startTimer();
+    setupProctorGuards();
+  }
+  window.startFlow = startFlow;
+
+  function setupProctorGuards() {
+    if (fsPollInterval) {
+      clearInterval(fsPollInterval);
+      fsPollInterval = null;
+    }
+    if (faceCheckInterval) {
+      clearInterval(faceCheckInterval);
+      faceCheckInterval = null;
+    }
+    fsExitLatch = false;
+    faceExitLatch = false;
+    noFaceStreak = 0;
+    clearGraceModal();
+    tabHiddenLatch = false;
+
+    /**
+     * Ctrl+Tab / sekme değişimi tarayıcıda her zaman engellenemez; sekme değişince
+     * document.hidden güvenilir biçimde true olur → ihlal kaydı.
+     * Alt+Tab ile başka uygulamaya geçiş de genelde sayfayı gizler (odak kaybı).
+     */
+    function logTabHiddenOnce(source) {
+      if (!attempt || !attempt.attempt_id) return;
+      if (tabHiddenLatch) return;
+      tabHiddenLatch = true;
+      logProctor("tab_hidden", true, { source: source || "visibility" })
+        .then(function () {
+          updateKpis();
+          autoSubmitIfNeeded();
+        })
+        .catch(function () {});
+    }
+
+    function onVisibilityForTab() {
+      if (!document.hidden) {
+        tabHiddenLatch = false;
+        return;
+      }
+      logTabHiddenOnce("visibilitychange");
+    }
+
+    document.addEventListener("visibilitychange", onVisibilityForTab);
+
+    if (visibilityPollInterval) {
+      clearInterval(visibilityPollInterval);
+      visibilityPollInterval = null;
+    }
+    visibilityPollInterval = setInterval(function () {
+      if (!attempt || !attempt.attempt_id) return;
+      if (document.hidden) {
+        logTabHiddenOnce("poll");
+      } else {
+        tabHiddenLatch = false;
+      }
+    }, 350);
+
+    function onFsEvent() {
+      setTimeout(function () {
+        checkFullscreenViolation("fullscreenchange");
+      }, 80);
+    }
+    document.addEventListener("fullscreenchange", onFsEvent);
+    document.addEventListener("webkitfullscreenchange", onFsEvent);
+    document.addEventListener("mozfullscreenchange", onFsEvent);
+    document.addEventListener("MSFullscreenChange", onFsEvent);
+
+    fsPollInterval = setInterval(function () {
+      checkFullscreenViolation("poll");
+    }, 350);
+
+    setInterval(function () {
+      if (exam && exam.proctor && exam.proctor.require_camera && stream) {
+        var tr = stream.getVideoTracks()[0];
+        if (tr && tr.readyState === "ended") {
+          logProctor("camera_ended_poll", true, {});
+          autoSubmitIfNeeded();
+        }
+      }
+    }, 2000);
+
+    if (exam && exam.proctor && exam.proctor.require_camera) {
+      initFaceWatch();
+    }
+  }
+
+  function autoSubmitIfNeeded() {
+    if (!attempt || !attempt.attempt_id) return;
+    var pr = exam && exam.proctor ? exam.proctor : {};
+    if (maxV > 0 && viol >= maxV && pr.auto_submit_on_violation !== false) {
+      submitExam(true);
+    }
+  }
+
+  function confirmLeave() {
+    if (!attempt || !attempt.attempt_id) {
+      location.href = "student-exams.html";
+      return;
+    }
+    logProctor("leave_confirmed", true, {})
+      .then(function () {
+        return submitExam(true);
+      })
+      .catch(function () {
+        return submitExam(true);
+      });
+  }
+  window.confirmLeave = confirmLeave;
+
+  async function submitExam(auto) {
+    if (!attempt || !attempt.attempt_id) return;
+    exitExamSessionMode();
+    clearGraceModal();
+    if (faceCheckInterval) {
+      clearInterval(faceCheckInterval);
+      faceCheckInterval = null;
+    }
+    var btn = document.getElementById("submitBtn");
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = auto ? "Bitiriliyor…" : "Gönderiliyor…";
+    }
+    await logProctor(auto ? "auto_submit" : "manual_submit", false, { auto: !!auto });
+
+    var res = await fetch(API + "/exams/" + examId + "/submit", {
+      method: "POST",
+      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+      body: JSON.stringify({ attempt_id: attempt.attempt_id, answers: answers }),
+    });
+    var data = await res.json().catch(function () { return {}; });
+    stopCamera();
+    if (fsPollInterval) {
+      clearInterval(fsPollInterval);
+      fsPollInterval = null;
+    }
+    if (visibilityPollInterval) {
+      clearInterval(visibilityPollInterval);
+      visibilityPollInterval = null;
+    }
+    if (timerInt) {
+      clearInterval(timerInt);
+      timerInt = null;
+    }
+
+    if (!res.ok) {
+      alert((data && data.error) || "Gönderilemedi.");
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = "Gönder";
+      }
+      return;
+    }
+    attempt = null;
+    setBanner(false);
+    var titleEl = document.getElementById("examTitle");
+    if (titleEl) {
+      titleEl.textContent =
+        (exam && exam.title ? exam.title + " — " : "") + "Sonuç";
+    }
+    var hint = document.getElementById("studentPageHint");
+    if (hint) {
+      var lab = typeof t === "function" ? t("student.nav.exams") : "Sınav";
+      hint.textContent = lab + " · " + (typeof t === "function" ? t("student.exam.resultHint") : "Sonuç");
+    }
+
+    var passed = !!data.passed;
+    setBody(
+      '<div style="text-align:center;padding:18px 10px;">' +
+      '<div style="font-size:2rem;margin-bottom:8px;">' +
+      (passed ? "✅" : "❌") +
+      "</div>" +
+      '<div style="font-weight:900;font-size:1.2rem;color:var(--text);">' +
+      (passed ? "Sınav geçti" : "Sınav kaldı") +
+      "</div>" +
+      '<div style="color:var(--text-2);margin-top:8px;line-height:1.6;">' +
+      'Skor: <strong style="font-family:var(--mono);">' +
+      Number(data.score || 0) +
+      "</strong> / 100 · Baraj: <strong style=\"font-family:var(--mono);\">" +
+      Number(data.pass_score || 0) +
+      "</strong><br>Doğru: <strong style=\"font-family:var(--mono);\">" +
+      Number(data.correct_count || 0) +
+      "</strong> / " +
+      Number(data.total_questions || 0) +
+      "<br>İhlal: <strong style=\"font-family:var(--mono);\">" +
+      viol +
+      "</strong>" +
+      "</div>" +
+      '<div style="margin-top:14px;">' +
+      '<a class="btn btn-primary" href="student-exams.html" style="text-decoration:none;">Sınavlara dön</a>' +
+      "</div>" +
+      "</div>"
+    );
+  }
+  window.submitExam = submitExam;
+
+  async function load() {
+    if (!examId) {
+      setBody('<div class="empty-state"><span class="empty-icon">🧪</span><p>Geçersiz sınav bağlantısı (id yok).</p></div>');
+      return;
+    }
+    var data = await apiFetch("/exams/" + examId);
+    if (!data || (data.error && !data.exam)) {
+      var err = (data && data.error) ? data.error : "Sınav yüklenemedi.";
+      setBody('<div class="empty-state"><span class="empty-icon">🧪</span><p>' + esc(err) + "</p><p style=\"font-size:.82rem;color:var(--text-3);margin-top:8px;\">Sınavın <strong>yayında</strong> olduğundan ve tarih aralığının uygun olduğundan emin olun.</p></div>");
+      return;
+    }
+    exam = data.exam;
+    renderExam();
+  }
+
+  load();
+</script>
+</body>
+</html>

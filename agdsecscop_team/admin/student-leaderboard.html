@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — Liderlik Tablosu</title>
+  <link rel="stylesheet" href="admin.css">
+  <link rel="stylesheet" href="student-shell.css">
+  <style>
+    .sidebar-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:45; }
+    .lb-row { display:flex; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid var(--border); }
+    .lb-row:last-child { border-bottom:none; }
+    .lb-row.me { background:var(--red-light); border-radius:8px; padding-left:8px; padding-right:8px; margin:0 -8px; }
+    /* Podium (Top 3) */
+    .podium-wrap {
+      display:flex;
+      align-items:flex-end;
+      justify-content:center;
+      gap:12px;
+      padding:12px 0 6px;
+      min-height:110px;
+    }
+    .podium-slot {
+      flex:1;
+      min-width:0;
+      border:1px solid var(--border);
+      background:var(--bg);
+      border-radius:14px;
+      padding:12px 10px;
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      gap:8px;
+    }
+    .podium-1 { transform: translateY(-10px); border-color: rgba(199,48,80,.55); background:var(--bg-2); }
+    .podium-2 { transform: translateY(-6px); border-color: rgba(58,93,191,.3); }
+    .podium-3 { border-color: rgba(26,158,110,.3); }
+    .podium-medal { font-size:1.25rem; line-height:1; }
+    .podium-avatar {
+      width:42px; height:42px;
+      border-radius:999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-family:var(--mono);
+      font-weight:800;
+      font-size:.68rem;
+      color:#fff;
+    }
+    .podium-you {
+      padding:2px 8px;
+      border-radius:999px;
+      border:1px solid var(--border);
+      background:var(--bg-card);
+      color:var(--red);
+      font-size:.7rem;
+    }
+    .podium-name {
+      font-size:.88rem;
+      font-weight:900;
+      color:var(--text);
+      max-width:140px;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+      text-align:center;
+    }
+    .podium-score {
+      font-family:var(--mono);
+      font-weight:900;
+      color:var(--red);
+      font-size:.98rem;
+      margin-top:auto;
+      line-height:1;
+    }
+    @media (max-width:900px){ .sidebar-overlay.visible{display:block;} }
+  </style>
+</head>
+<body>
+<div class="admin-layout">
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+  <main class="admin-main">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button type="button" class="hamburger" onclick="toggleSidebar()"><span></span><span></span><span></span></button>
+        <div>
+          <div class="topbar-title" data-i18n="student.topbar.brand">Öğrenci Paneli</div>
+          <div class="topbar-page-hint" id="studentPageHint"></div>
+          <div class="topbar-sub" id="topbarSub"></div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <div class="notif-wrap" id="notifWrap">
+          <button type="button" class="btn btn-ghost btn-sm notif-btn" id="notifBtn" onclick="toggleNotifPanel()" data-i18n-title="student.page.announcements" title="Duyurular">🔔
+            <span class="notif-badge" id="notifBadge" aria-hidden="true"></span>
+          </button>
+          <div class="notif-panel" id="notifPanel">
+            <div style="padding:10px 12px;border-bottom:1px solid var(--border);font-size:.76rem;font-weight:700;color:var(--text-2);display:flex;justify-content:space-between;align-items:center;">
+              <span id="notifPanelTitle">Yeni Duyurular</span>
+              <a id="notifSeeAll" href="student-announcements.html" style="font-size:.72rem;color:var(--blue);text-decoration:none;">Tümünü gör</a>
+            </div>
+            <div id="notifList" style="padding:0;"></div>
+          </div>
+        </div>
+        <div class="topbar-avatar">
+          <div class="avatar avatar-blue" style="width:28px;height:28px;font-size:0.7rem;" id="avatarInitials">—</div>
+          <span class="topbar-avatar-name" id="avatarName">Öğrenci</span>
+        </div>
+      </div>
+    </header>
+    <div class="page">
+      <div class="card">
+        <div class="card-header"><h3 data-i18n="student.lb.title">Genel Sıralama</h3></div>
+        <div class="card-body">
+          <div id="podiumBox" class="podium-wrap"><div class="spinner"></div></div>
+          <div id="lbList"><div class="spinner"></div></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="theme-i18n.js"></script>
+<script src="student-shared.js"></script>
+<script>
+initStudentShell({ activePage: "leaderboard", pageLabelKey: "student.page.leaderboard" });
+if (typeof t === "function") document.title = "SeCScop — " + t("student.meta.titleLeaderboard");
+function sT(key, vars) { return typeof t === "function" ? t(key, vars) : key; }
+// Tirnak karakterlerini de kacisan ortak surum (student-shared.js).
+const escLb = window.escapeHtml;
+const API = window.API;
+const token = window.token;
+fetch(`${API}/leaderboard`,{headers:{Authorization:`Bearer ${token}`}}).then(r=>r.json()).then(rows=>{
+  if(!Array.isArray(rows)) return;
+  const MEDALS = {1:"🥇",2:"🥈",3:"🥉"};
+  const top3 = rows.slice(0,3);
+  const [r1, r2, r3] = top3;
+
+  const slot = (r, cls, pos) => `
+    <div class="podium-slot ${cls}">
+      <div class="podium-medal">${MEDALS[pos] || pos}</div>
+      <div class="podium-avatar" style="background:${window.avatarColor(r.name)};">${escLb(window.initials(r.name))}</div>
+      ${r.is_me ? `<div class="podium-you">${escLb(sT("student.lb.you"))}</div>` : ""}
+      <div class="podium-name">${escLb(r.name)}</div>
+      <div class="podium-score">${r.ctf_score}</div>
+    </div>
+  `;
+
+  const podiumBox = document.getElementById("podiumBox");
+  if (podiumBox) {
+    if (!top3.length) {
+      podiumBox.innerHTML = `<div style="font-size:.82rem;color:var(--text-3);padding:12px 0;">—</div>`;
+    } else {
+    podiumBox.innerHTML = `
+      <div class="podium-wrap" style="padding:0;min-height:auto;">
+        ${r2 ? slot(r2, "podium-2", 2) : ""}
+        ${r1 ? slot(r1, "podium-1", 1) : ""}
+        ${r3 ? slot(r3, "podium-3", 3) : ""}
+      </div>
+    `;
+    }
+  }
+
+  document.getElementById("lbList").innerHTML=rows.map(r=>`<div class="lb-row ${r.is_me?"me":""}">
+    <div style="width:28px;text-align:center;font-family:var(--mono);color:var(--text-3);">${r.rank}</div>
+    <div class="avatar" style="background:${window.avatarColor(r.name)};color:#fff;width:28px;height:28px;font-size:.68rem;">${escLb(window.initials(r.name))}</div>
+    <div style="flex:1;color:var(--text);font-weight:${r.is_me?"700":"500"};">${r.is_me ? escLb(sT("student.lb.you")) : " "+escLb(r.name)}</div>
+    <div style="font-family:var(--mono);font-weight:700;color:${r.is_me?"var(--red)":"var(--text-2)"};">${r.ctf_score}</div>
+  </div>`).join("");
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+  <script>(function(){try{var t=localStorage.getItem('edunova_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SeCScop — Announcements</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="admin.css">
+  <style>
+    .ann-card {
+      background:var(--bg-card);
+      border:1px solid var(--border);
+      border-radius:var(--radius);
+      padding:20px 22px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      transition:border-color .2s,box-shadow .2s;
+      position:relative;
+      overflow:hidden;
+    }
+    .ann-card::before {
+      content:"";
+      position:absolute;
+      left:0;top:0;bottom:0;
+      width:3px;
+      background:var(--red);
+      border-radius:0 3px 3px 0;
+    }
+    .ann-card:hover { border-color:var(--border-2); box-shadow:0 4px 16px rgba(0,0,0,.06); }
+    .ann-card-title { font-size:1rem; font-weight:700; color:var(--text); }
+    .ann-card-body  { font-size:.88rem; color:var(--text-2); line-height:1.65; }
+    .ann-card-footer { display:flex;align-items:center;gap:12px;padding-top:4px;border-top:1px solid var(--border); }
+    .ann-card-time  { font-size:.76rem;font-family:var(--mono);color:var(--text-3);flex:1; }
+  </style>
+</head>
+<body>
+<div class="admin-layout">
+
+  <aside class="sidebar" id="sidebar"></aside>
+  <div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+  <main class="admin-main">
+    <header class="topbar" id="topbar"></header>
+
+    <div class="page">
+
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;">
+        <div id="annCount" style="font-size:.9rem;color:var(--text-2);"></div>
+        <button class="btn btn-primary" onclick="openAddAnn()" data-i18n="admin.ann.addBtn">+ Duyuru Ekle</button>
+      </div>
+
+      <div class="grid-2" id="annGrid">
+        <div style="grid-column:1/-1;text-align:center;padding:40px;"><div class="spinner"></div></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<!-- Modal: Duyuru Ekle -->
+<div class="modal-overlay" id="addAnnModal">
+  <div class="modal" style="max-width:520px;">
+    <div class="modal-header">
+      <h3 data-i18n="admin.ann.modalAddTitle">Yeni Duyuru</h3>
+      <button class="modal-close" onclick="closeModal('addAnnModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="field"><label data-i18n="admin.ann.labelTitle">Başlık</label><input type="text" id="annTitle" data-i18n-placeholder="admin.ann.phTitle" placeholder="Duyuru başlığı"></div>
+      <div class="field">
+        <label data-i18n="admin.ann.labelBody">İçerik</label>
+        <textarea id="annBody" rows="5" data-i18n-placeholder="admin.ann.phBody" placeholder="Duyuru metni…"
+          style="width:100%;background:var(--bg);border:1px solid var(--border-2);border-radius:var(--radius-sm);padding:10px;font-size:.88rem;color:var(--text);resize:vertical;font-family:inherit;"></textarea>
+      </div>
+      <div id="addAnnErr" class="badge badge-red" style="display:none;padding:8px;border-radius:8px;font-size:.82rem;"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('addAnnModal')" data-i18n="common.cancel">İptal</button>
+      <button class="btn btn-primary" id="addAnnBtn" onclick="submitAddAnn()" data-i18n="common.publish">Yayınla</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal: Sil Onay -->
+<div class="modal-overlay" id="deleteAnnModal">
+  <div class="modal" style="max-width:380px;">
+    <div class="modal-header">
+      <h3 data-i18n="admin.ann.modalDelTitle">Duyuruyu Sil</h3>
+      <button class="modal-close" onclick="closeModal('deleteAnnModal')">✕</button>
+    </div>
+    <div class="modal-body">
+      <p id="delAnnMsg" style="font-size:.9rem;color:var(--text-2);"></p>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('deleteAnnModal')" data-i18n="common.cancel">İptal</button>
+      <button class="btn btn-danger" id="confirmDelAnnBtn" onclick="confirmDeleteAnn()" data-i18n="common.yesDelete">Evet, Sil</button>
+    </div>
+  </div>
+</div>
+
+<script src="theme-i18n.js"></script>
+<script src="admin-shared.js"></script>
+<script>
+  document.getElementById("sidebar").innerHTML = buildSidebar("announcements");
+  document.getElementById("topbar").innerHTML  = buildTopbar(typeof t === "function" ? t("admin.nav.announcements") : "Duyurular");
+  initTopbar(typeof t === "function" ? t("admin.nav.announcements") : "Duyurular");
+  if (typeof t === "function") document.title = "SeCScop — " + t("admin.nav.announcements");
+  setupModalOverlayClose();
+
+  let deleteAnnId = null;
+  let loadedAnns = [];   // başlık onclick'e gömülmez, buradan okunur
+  const COLORS = ["var(--red)","var(--blue)","var(--green)","var(--orange)","#8b5cf6","#0891b2"];
+
+  async function reloadPage() {
+    const anns = await apiFetch("/announcements");
+    loadedAnns = Array.isArray(anns) ? anns : [];
+    document.getElementById("annCount").textContent =
+      typeof t === "function" ? t("admin.ann.countN", { n: anns.length }) : `${anns.length} duyuru`;
+
+    if (!anns.length) {
+      document.getElementById("annGrid").innerHTML = `
+        <div style="grid-column:1/-1;">
+          <div class="empty-state"><span class="empty-icon">🔔</span><p>${typeof t === "function" ? t("admin.ann.empty") : "Henüz duyuru yayınlanmadı."}</p></div>
+        </div>`;
+      return;
+    }
+
+    document.getElementById("annGrid").innerHTML = anns.map((a,i) => `
+      <div class="ann-card" style="--accent:${COLORS[i%COLORS.length]};" onclick="">
+        <div class="ann-card-title">📢 ${escapeHtml(a.title)}</div>
+        <div class="ann-card-body">${escapeHtml(a.body)}</div>
+        <div class="ann-card-footer">
+          <span class="ann-card-time">🕒 ${formatDate(a.created_at)} — ${relativeTime(a.created_at)}</span>
+          <button class="btn btn-danger btn-sm" onclick="askDeleteAnn(${Number(a.id)})">${typeof t === "function" ? t("admin.ann.btnDel") : "🗑 Sil"}</button>
+        </div>
+      </div>
+    `).join("");
+  }
+
+  function openAddAnn() {
+    ["annTitle","annBody"].forEach(id => document.getElementById(id).value = "");
+    hideError("addAnnErr");
+    openModal("addAnnModal");
+    document.getElementById("annTitle").focus();
+  }
+
+  async function submitAddAnn() {
+    const title = document.getElementById("annTitle").value.trim();
+    const body  = document.getElementById("annBody").value.trim();
+    const btn   = document.getElementById("addAnnBtn");
+    if (!title || !body) { showError("addAnnErr", typeof t === "function" ? t("admin.ann.errRequired") : "Başlık ve içerik zorunludur."); return; }
+    btn.textContent = typeof t === "function" ? t("admin.ann.publishing") : "Yayınlanıyor…"; btn.disabled = true;
+    const res = await fetch(`${API}/announcements`, {
+      method:"POST", headers:{Authorization:`Bearer ${_token}`,"Content-Type":"application/json"},
+      body: JSON.stringify({title,body}),
+    });
+    const data = await res.json();
+    btn.textContent = typeof t === "function" ? t("common.publish") : "Yayınla"; btn.disabled = false;
+    if (!res.ok) { showError("addAnnErr", data.error || (typeof t === "function" ? t("admin.students.errGeneric") : "Hata oluştu.")); return; }
+    closeModal("addAnnModal");
+    toast(typeof t === "function" ? t("admin.ann.toastPublished") : "Duyuru yayınlandı.");
+    reloadPage();
+  }
+
+  function askDeleteAnn(id) {
+    deleteAnnId = id;
+    const found = loadedAnns.find((x) => Number(x.id) === Number(id));
+    const title = found ? found.title : "";
+    const msg = document.getElementById("delAnnMsg");
+    if (msg) msg.textContent = typeof t === "function" ? t("admin.ann.delConfirm", { title }) : `"${title}" duyurusunu silmek istediğinizden emin misiniz?`;
+    openModal("deleteAnnModal");
+  }
+
+  async function confirmDeleteAnn() {
+    const btn = document.getElementById("confirmDelAnnBtn");
+    btn.textContent = typeof t === "function" ? t("admin.students.deleting") : "Siliniyor…"; btn.disabled = true;
+    await fetch(`${API}/announcements/${deleteAnnId}`, {
+      method:"DELETE", headers:{Authorization:`Bearer ${_token}`},
+    });
+    btn.textContent = typeof t === "function" ? t("common.yesDelete") : "Evet, Sil"; btn.disabled = false;
+    closeModal("deleteAnnModal");
+    toast(typeof t === "function" ? t("admin.ann.toastDeleted") : "Duyuru silindi.", "error");
+    reloadPage();
+  }
+
+  reloadPage();
+</script>
+</body>
+</html>
