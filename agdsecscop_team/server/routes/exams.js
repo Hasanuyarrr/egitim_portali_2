@@ -99,7 +99,10 @@ const PROCTOR_EVENTS = {
   camera_ended:           { violation: true },
   camera_ended_poll:      { violation: true },
   camera_disabled:        { violation: true },
-  face_watch_unavailable: { violation: true },
+  camera_obscured:        { violation: true },   // el/kapak ile kameranın kapatılması
+  // Yüz modeli CDN'den yüklenemedi: öğrencinin kusuru değil, altyapı eksikliği.
+  // Kayda geçer ama ihlal sayılmaz — kamera örtme kontrolü yine çalışır.
+  face_watch_unavailable: { violation: false },
   key_blocked:            { violation: true },
   clipboard_blocked:      { violation: true },
   context_menu_blocked:   { violation: true },

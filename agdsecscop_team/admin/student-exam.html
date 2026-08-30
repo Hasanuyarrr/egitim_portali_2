@@ -222,8 +222,28 @@
   var FACE_CHECK_MS = 500;
   /** Ardışık "yüz yok" örnekleri (~2 sn @ 500ms) — yanlış alarm azaltır */
   var NO_FACE_STREAK_NEEDED = 4;
-  /** Son yüz tespiti (grace iptali: tam ekran VEYA kadraj) */
+  /**
+   * Kameranın önü açık ve öğrenci kadrajda görünüyor mu?
+   * Yüz modeli varsa yüz sayısına, yoksa kare analizine göre belirlenir.
+   * Grace geri sayımının iptali bu bayrağa bakar.
+   */
   var lastFaceInFrame = false;
+  /** Yüz modeli gerçekten yüklendi mi (CDN erişilemeyebilir) */
+  var faceModelAvailable = false;
+
+  // ── Kamera örtme tespiti (kütüphane gerektirmez) ──────────────
+  // Yüz modeli CDN'den geliyor ve internet yoksa hiç yüklenmiyor; bu durumda
+  // kamera denetimi tamamen devre dışı kalıyordu (elle kapatmak ihlal
+  // saymıyordu). Kare parlaklık/varyans analizi tarayıcının kendi
+  // canvas API'siyle çalışır ve dış bağımlılığı yoktur.
+  var camCanvas = null;
+  var camCtx = null;
+  var obscuredStreak = 0;
+  var cameraObscuredLatch = false;
+  /** Ortalama parlaklık bunun altındaysa kadraj karanlık (el/kapak/bant). */
+  var OBSCURED_MEAN = 26;
+  /** Standart sapma bunun altındaysa kadraj tekdüze (lense dayalı el). */
+  var OBSCURED_STD = 10;
 
   // Ortak, tırnak/backtick kaçışlı sürüm (student-shared.js).
   var esc = window.escapeHtml;
@@ -374,12 +394,19 @@
     var btnEl = document.getElementById("fsTermActionBtn");
     if (!o || !titleEl || !msgEl) return;
 
-    if (kind === "face") {
+    if (kind === "obscured") {
+      titleEl.textContent = "Kamera görüşü kapalı";
+      msgEl.innerHTML =
+        'Kamera görüntüsü kapatılmış veya örtülmüş görünüyor. Bu bir <strong style="color:var(--text);">ihlal</strong> olarak kaydedildi. ' +
+        '<strong style="color:var(--red);">Sınavınız sonlandırılıyor.</strong> ' +
+        GRACE_SEC + " saniye içinde kameranın önünü açmazsanız sınavınız otomatik gönderilecektir.";
+      if (btnEl) btnEl.style.display = "none";
+    } else if (kind === "face") {
       titleEl.textContent = "Kamera kadrajı";
       msgEl.innerHTML =
         'Kadrajda yüz tespit edilemedi. Bu bir <strong style="color:var(--text);">ihlal</strong> olarak kaydedildi. ' +
         '<strong style="color:var(--red);">Sınavınız sonlandırılıyor.</strong> ' +
-        "10 saniye içinde tekrar kameranın önüne geçmezseniz sınavınız otomatik gönderilecektir.";
+        GRACE_SEC + " saniye içinde tekrar kameranın önüne geçmezseniz sınavınız otomatik gönderilecektir.";
       if (btnEl) btnEl.style.display = "none";
     } else {
       titleEl.textContent = "Tam ekran ihlali";
@@ -500,9 +527,13 @@
     var needFs = !!(pr.require_fullscreen && !fsSkipped);
     var needCam = !!pr.require_camera;
     var parts = [];
-    if (needFs) parts.push(isFullscreenActive() ? "Tam ekran: tamam" : "Tam ekran: gerekli");
-    if (needCam) parts.push(lastFaceInFrame ? "Kadraj (yüz): tamam" : "Kadraj (yüz): eksik");
-    el.textContent = parts.join(" · ");
+    if (needFs) parts.push(isFullscreenActive() ? "✓ Tam ekran" : "✗ Tam ekran gerekli");
+    if (needCam) {
+      if (cameraObscuredLatch) parts.push("✗ Kamera görüşü kapalı");
+      else if (!lastFaceInFrame) parts.push(faceModelAvailable ? "✗ Kadrajda yüz yok" : "✗ Kamera görüntüsü yok");
+      else parts.push("✓ Kamera");
+    }
+    el.textContent = parts.join("  ·  ");
   }
 
   function tryRecoverGrace() {
@@ -515,6 +546,8 @@
     fsExitLatch = needFs && !isFullscreenActive();
     faceExitLatch = needCam && !lastFaceInFrame;
     noFaceStreak = 0;
+    obscuredStreak = 0;
+    cameraObscuredLatch = false;
     updateFullscreenWarningUi();
   }
 
@@ -545,31 +578,97 @@
     }
   }
 
+  /**
+   * Kareyi küçültüp ortalama parlaklık ve standart sapmasını döndürür.
+   * getUserMedia akışı aynı origin sayıldığı için canvas "tainted" olmaz.
+   */
+  function analyzeFrame(video) {
+    try {
+      if (!camCanvas) {
+        camCanvas = document.createElement("canvas");
+        camCanvas.width = 64;
+        camCanvas.height = 48;
+        camCtx = camCanvas.getContext("2d", { willReadFrequently: true });
+      }
+      if (!camCtx) return null;
+      camCtx.drawImage(video, 0, 0, 64, 48);
+      var d = camCtx.getImageData(0, 0, 64, 48).data;
+      var sum = 0, sumSq = 0, n = 0;
+      for (var i = 0; i < d.length; i += 4) {
+        var lum = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+        sum += lum;
+        sumSq += lum * lum;
+        n++;
+      }
+      if (!n) return null;
+      var mean = sum / n;
+      var variance = Math.max(0, sumSq / n - mean * mean);
+      return { mean: mean, std: Math.sqrt(variance) };
+    } catch (e) {
+      return null;
+    }
+  }
+
   function faceTick() {
     if (!attempt || !attempt.attempt_id) return;
     var pr = exam && exam.proctor ? exam.proctor : {};
     if (!pr.require_camera || !stream) return;
-    if (faceDetectRunning) return;
-    if (!faceModel) return;
     var v = document.getElementById("camVideo");
     if (!v || v.readyState < 2 || v.videoWidth < 64) {
       lastFaceInFrame = false;
       tryRecoverGrace();
+      if (graceTimer) updateGraceStatusLine();
       return;
     }
 
+    // ── 1) Kütüphane gerektirmeyen örtme kontrolü (her zaman çalışır) ──
+    var frame = analyzeFrame(v);
+    var obscured = !!(frame && (frame.mean < OBSCURED_MEAN || frame.std < OBSCURED_STD));
+    if (obscured) {
+      obscuredStreak += 1;
+    } else {
+      obscuredStreak = 0;
+      cameraObscuredLatch = false;
+    }
+    var obscuredConfirmed = obscuredStreak >= NO_FACE_STREAK_NEEDED;
+
+    if (obscuredConfirmed && !cameraObscuredLatch) {
+      cameraObscuredLatch = true;
+      lastFaceInFrame = false;
+      logProctor("camera_obscured", true, {
+        mean: frame ? Math.round(frame.mean) : null,
+        std: frame ? Math.round(frame.std) : null,
+      }).then(function () {
+        updateKpis();
+        if (!graceTimer) startGraceTermination("obscured");
+      }).catch(function () {
+        if (!graceTimer) startGraceTermination("obscured");
+      });
+    }
+
+    // ── 2) Yüz modeli varsa yüz sayısı; yoksa örtme kontrolüne güvenilir ──
+    if (!faceModelAvailable || !faceModel) {
+      // Model yok: kamera açık ve kadraj örtülü değilse "mevcut" kabul edilir.
+      // Aksi hâlde model yüklenemediğinde geri sayım hiçbir zaman
+      // iptal edilemiyordu (tam ekrana dönmek sayacı durdurmuyordu).
+      lastFaceInFrame = !obscuredConfirmed;
+      tryRecoverGrace();
+      if (graceTimer) updateGraceStatusLine();
+      return;
+    }
+
+    if (faceDetectRunning) return;
     faceDetectRunning = true;
     (async function () {
       try {
         var predictions = await faceModel.estimateFaces(v, false, true);
         var count = predictions && predictions.length ? predictions.length : 0;
-        var hasFace = count > 0;
+        var hasFace = count > 0 && !obscuredConfirmed;
         lastFaceInFrame = hasFace;
         tryRecoverGrace();
         if (graceTimer) updateGraceStatusLine();
 
         // Kadrajda birden fazla yüz: bir başkasının yardım etmesi.
-        // Öncekinde yalnızca "yüz var mı" bakılıyordu, ikinci kişi görünmüyordu.
         if (count > 1) {
           if (!multiFaceLatch) {
             multiFaceLatch = true;
@@ -581,7 +680,7 @@
           multiFaceLatch = false;
         }
 
-        if (hasFace) {
+        if (count > 0) {
           noFaceStreak = 0;
           faceExitLatch = false;
           faceDetectRunning = false;
@@ -613,28 +712,33 @@
    * başarısızlık hem sunucuya bildirilir hem de ekranda görünür.
    */
   function initFaceWatch() {
+    // Örtme kontrolü dış bağımlılık istemez; model beklenmeden başlatılır.
+    // Önceden döngü yalnızca model yüklenirse kuruluyordu, bu yüzden CDN'e
+    // erişilemediğinde kamera denetimi tamamen sessiz kalıyordu.
+    if (faceCheckInterval) clearInterval(faceCheckInterval);
+    faceCheckInterval = setInterval(faceTick, FACE_CHECK_MS);
+    setFaceWatchNotice("obscure-only");
+
     initFaceDetector().then(function (ok) {
+      faceModelAvailable = !!ok;
       if (!attempt || !attempt.attempt_id) return;
       if (!ok) {
-        setFaceWatchNotice(false);
+        setFaceWatchNotice("obscure-only");
         if (!faceWatchUnavailableLogged) {
           faceWatchUnavailableLogged = true;
-          logProctor("face_watch_unavailable", true, { ua: navigator.userAgent }).catch(function () {});
+          // İhlal DEĞİL: öğrencinin kusuru değil, altyapı eksikliği.
+          // Kamera örtme kontrolü çalışmaya devam ediyor.
+          logProctor("face_watch_unavailable", false, { ua: navigator.userAgent }).catch(function () {});
         }
         return;
       }
-      setFaceWatchNotice(true);
+      setFaceWatchNotice("full");
       logProctor("face_watch_started", false, {}).catch(function () {});
-      if (faceCheckInterval) {
-        clearInterval(faceCheckInterval);
-        faceCheckInterval = null;
-      }
-      faceCheckInterval = setInterval(faceTick, FACE_CHECK_MS);
     });
   }
 
-  /** Kadraj denetiminin gerçekten çalışıp çalışmadığını kamera kutusunda gösterir. */
-  function setFaceWatchNotice(active) {
+  /** Kadraj denetiminin hangi düzeyde çalıştığını kamera kutusunda gösterir. */
+  function setFaceWatchNotice(level) {
     var box = document.getElementById("camBox");
     if (!box) return;
     var el = document.getElementById("faceWatchNotice");
@@ -644,12 +748,12 @@
       el.style.cssText = "font-size:.7rem;line-height:1.35;margin-top:4px;text-align:center;";
       box.appendChild(el);
     }
-    if (active) {
+    if (level === "full") {
       el.style.color = "var(--green)";
-      el.textContent = "● Kadraj denetimi etkin";
+      el.textContent = "● Kadraj denetimi etkin (yüz tespiti)";
     } else {
-      el.style.color = "var(--red)";
-      el.textContent = "▲ Kadraj denetimi başlatılamadı — ihlal olarak kaydedildi";
+      el.style.color = "var(--orange)";
+      el.textContent = "● Kamera denetimi etkin (yüz tespiti kullanılamıyor)";
     }
   }
 

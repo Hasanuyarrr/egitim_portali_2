@@ -228,10 +228,21 @@ gönderdiği hiçbir iddiaya güvenilmez.
   sayaç azaltılıyordu; tarayıcı arka plandaki sekmelerde `setInterval`'ı
   yavaşlattığı için öğrenci tam ekrandan çıkıp başka pencereye geçtiğinde
   geri sayım fiilen duruyordu.
-- **Kamera:** model CDN'den yüklenemezse kadraj denetimi artık **sessizce
-  kapanmıyor** — `face_watch_unavailable` ihlali kaydedilir ve kamera kutusunda
-  kırmızı uyarı görünür. Ek olarak **birden fazla yüz** (`multiple_faces`) ve
-  `track.enabled = false` / `muted` ile **kapatılan kamera** de yakalanır.
+- **Kamera:** yüz tespiti CDN'den yüklenen bir modele bağlıydı; internet yoksa
+  kamera denetimi **tamamen sessiz kalıyordu** — kamerayı elle kapatmak ihlal
+  sayılmıyordu. Artık kütüphane gerektirmeyen bir **örtme kontrolü** her zaman
+  çalışır: kare 64×48'e küçültülüp ortalama parlaklık ve standart sapması
+  hesaplanır; kadraj karanlık (`mean < 26`) veya tekdüze (`std < 10`) kalırsa
+  ~2 saniye sonra `camera_obscured` ihlali üretilir. Yüz modeli yüklenebilirse
+  buna ek olarak yüz varlığı ve **birden fazla yüz** (`multiple_faces`)
+  denetlenir. `track.enabled = false` / `muted` ile kapatılan kamera de yakalanır.
+  `face_watch_unavailable` kayda geçer ama **ihlal sayılmaz** — altyapı
+  eksikliği öğrencinin kusuru değildir.
+- **Geri sayım iptali:** grace yalnızca tüm koşullar sağlanınca iptal edilir.
+  Ancak `lastFaceInFrame` yalnızca yüz modeliyle `true` olabildiği için, model
+  yüklenemediğinde koşul hiçbir zaman sağlanamıyor ve **tam ekrana dönmek
+  sayacı durdurmuyordu**. Kamera durumu artık örtme kontrolünden de
+  beslendiği için bu kilitlenme ortadan kalktı.
 - **Pano ve kısayollar:** sağ tık menüsü ve fare ile yapıştırma da artık kayda
   geçer (önceden yalnızca klavye yolu loglanıyordu). F12, Ctrl+Shift+I/J/C ve
   Ctrl+U eklendi; sınav sırasında metin seçimi kapatıldı.
