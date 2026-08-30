@@ -62,6 +62,20 @@
     body.exam-session-active .topbar-avatar {
       display: none !important;
     }
+    /* Kopyalama engelliyken metin seçimi de kapalı olmalı; aksi hâlde
+       seçim yapılabiliyor ve sürükle-bırak ile metin taşınabiliyordu. */
+    body.exam-no-select,
+    body.exam-no-select * {
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+    }
+    body.exam-no-select input,
+    body.exam-no-select textarea {
+      -webkit-user-select: text;
+      user-select: text;
+    }
   </style>
 </head>
 <body class="student-exam-page">
@@ -179,8 +193,25 @@
   var GRACE_SEC = 10;
   var graceTimer = null;
   var graceSecLeft = 0;
+  /**
+   * Geri sayımın bitiş anı (epoch ms).
+   * Önceden her tick'te graceSecLeft-- yapılıyordu; tarayıcı arka plandaki
+   * sekmelerde setInterval'ı dakikada bire kadar yavaşlattığı için, öğrenci
+   * tam ekrandan çıkıp başka pencereye geçtiğinde geri sayım fiilen duruyordu.
+   * Duvar saati kullanmak bu kaçamağı kapatır.
+   */
+  var graceEndsAt = 0;
   /** "fullscreen" | "face" | null */
   var graceKind = null;
+
+  var cameraPollInterval = null;
+  var heartbeatInterval = null;
+  var cameraOffLatch = false;
+  var windowBlurLatch = false;
+  /** Kadrajda birden fazla yüz için tek ihlal (kadraj temizlenince sıfırlanır) */
+  var multiFaceLatch = false;
+  /** Yüz tespiti hiç başlatılamadıysa tekrar tekrar loglamamak için */
+  var faceWatchUnavailableLogged = false;
 
   /** Yerel yüz tespiti (video sunucuya gönderilmez; sadece tarayıcıda işlenir) */
   var faceModel = null;
@@ -306,6 +337,7 @@
 
   function exitExamSessionMode() {
     document.body.classList.remove("exam-session-active");
+    document.body.classList.remove("exam-no-select");
   }
 
   function clearGraceModal() {
@@ -314,6 +346,7 @@
       graceTimer = null;
     }
     graceSecLeft = 0;
+    graceEndsAt = 0;
     graceKind = null;
     var o = document.getElementById("fsTermOverlay");
     if (o) {
@@ -365,6 +398,9 @@
 
     o.style.display = "flex";
     o.classList.add("open");
+    // Duvar saatine sabitlenir: sekme arka plana atılıp setInterval yavaşlatılsa
+    // bile kalan süre gerçek zamana göre azalır.
+    graceEndsAt = Date.now() + GRACE_SEC * 1000;
     graceSecLeft = GRACE_SEC;
     updateFsTermCountDisplay();
     updateGraceStatusLine();
@@ -374,10 +410,10 @@
         tryRecoverGrace();
         return;
       }
+      graceSecLeft = Math.ceil((graceEndsAt - Date.now()) / 1000);
       updateGraceStatusLine();
-      graceSecLeft -= 1;
       updateFsTermCountDisplay();
-      if (graceSecLeft <= 0) {
+      if (Date.now() >= graceEndsAt) {
         if (shouldClearGrace()) {
           tryRecoverGrace();
           return;
@@ -385,7 +421,7 @@
         clearGraceModal();
         submitExam(true);
       }
-    }, 1000);
+    }, 250);
   }
 
   function startFullscreenGraceTermination() {
@@ -526,10 +562,24 @@
     (async function () {
       try {
         var predictions = await faceModel.estimateFaces(v, false, true);
-        var hasFace = !!(predictions && predictions.length > 0);
+        var count = predictions && predictions.length ? predictions.length : 0;
+        var hasFace = count > 0;
         lastFaceInFrame = hasFace;
         tryRecoverGrace();
         if (graceTimer) updateGraceStatusLine();
+
+        // Kadrajda birden fazla yüz: bir başkasının yardım etmesi.
+        // Öncekinde yalnızca "yüz var mı" bakılıyordu, ikinci kişi görünmüyordu.
+        if (count > 1) {
+          if (!multiFaceLatch) {
+            multiFaceLatch = true;
+            await logProctor("multiple_faces", true, { count: count });
+            updateKpis();
+            autoSubmitIfNeeded();
+          }
+        } else {
+          multiFaceLatch = false;
+        }
 
         if (hasFace) {
           noFaceStreak = 0;
@@ -555,9 +605,26 @@
     })();
   }
 
+  /**
+   * Yüz izlemeyi başlatır.
+   * Model CDN'den yüklenir; internet yoksa veya CDN engelliyse önceden
+   * kadraj denetimi SESSİZCE devre dışı kalıyordu — öğrenciye "kadraj
+   * denetleniyor" yazıyor ama hiçbir şey kontrol edilmiyordu. Artık
+   * başarısızlık hem sunucuya bildirilir hem de ekranda görünür.
+   */
   function initFaceWatch() {
     initFaceDetector().then(function (ok) {
-      if (!ok || !attempt || !attempt.attempt_id) return;
+      if (!attempt || !attempt.attempt_id) return;
+      if (!ok) {
+        setFaceWatchNotice(false);
+        if (!faceWatchUnavailableLogged) {
+          faceWatchUnavailableLogged = true;
+          logProctor("face_watch_unavailable", true, { ua: navigator.userAgent }).catch(function () {});
+        }
+        return;
+      }
+      setFaceWatchNotice(true);
+      logProctor("face_watch_started", false, {}).catch(function () {});
       if (faceCheckInterval) {
         clearInterval(faceCheckInterval);
         faceCheckInterval = null;
@@ -566,36 +633,152 @@
     });
   }
 
+  /** Kadraj denetiminin gerçekten çalışıp çalışmadığını kamera kutusunda gösterir. */
+  function setFaceWatchNotice(active) {
+    var box = document.getElementById("camBox");
+    if (!box) return;
+    var el = document.getElementById("faceWatchNotice");
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "faceWatchNotice";
+      el.style.cssText = "font-size:.7rem;line-height:1.35;margin-top:4px;text-align:center;";
+      box.appendChild(el);
+    }
+    if (active) {
+      el.style.color = "var(--green)";
+      el.textContent = "● Kadraj denetimi etkin";
+    } else {
+      el.style.color = "var(--red)";
+      el.textContent = "▲ Kadraj denetimi başlatılamadı — ihlal olarak kaydedildi";
+    }
+  }
+
+  /**
+   * Gözetim olayını sunucuya bildirir.
+   *
+   * Notlar:
+   * - `is_violation` yalnızca bilgi amaçlıdır; ihlal kararını SUNUCU verir
+   *   (olay türüne göre). İstemciden gelen değere güvenilmez.
+   * - Her istekte güncel cevaplar da gönderilir (autosave). Süre dolduğunda
+   *   veya sekme kapandığında puanlama bu kayda göre yapılır.
+   * - Sunucu `terminated` döndürürse sınav istemcide de anında kapatılır.
+   */
   async function logProctor(event_type, is_violation, details) {
     if (!attempt || !attempt.attempt_id) return { violations_count: viol, max_violations: maxV };
-    var res = await fetch(API + "/exams/" + examId + "/proctor", {
-      method: "POST",
-      headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
-      body: JSON.stringify({
-        attempt_id: attempt.attempt_id,
-        event_type: event_type,
-        is_violation: !!is_violation,
-        details: details || {},
-      }),
-    });
+    var res;
+    try {
+      res = await fetch(API + "/exams/" + examId + "/proctor", {
+        method: "POST",
+        headers: { Authorization: "Bearer " + token, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          attempt_id: attempt.attempt_id,
+          event_type: event_type,
+          is_violation: !!is_violation,
+          details: details || {},
+          answers: answers,
+        }),
+      });
+    } catch (e) {
+      return { violations_count: viol, max_violations: maxV };
+    }
     var data = await res.json().catch(function () { return {}; });
     if (res.ok && data && typeof data.violations_count === "number") {
       viol = data.violations_count;
       maxV = Number(data.max_violations || maxV || 0);
       updateKpis();
     }
+    if (res.ok && data && data.terminated) {
+      handleServerTermination(data.reason);
+    }
     return data;
   }
 
+  /** Sunucu denemeyi kapattı: istemci artık cevap göndermez, sonucu gösterir. */
+  var terminationHandled = false;
+  function handleServerTermination(reason) {
+    if (terminationHandled) return;
+    terminationHandled = true;
+    stopAllProctorWatchers();
+    clearGraceModal();
+    exitExamSessionMode();
+    stopCamera();
+    attempt = null;
+    setBanner(false);
+    var mesaj =
+      reason === "time_up"
+        ? "Sınav süresi doldu. Cevaplarınız süre dolduğu andaki hâliyle değerlendirildi."
+        : reason === "max_violations"
+          ? "İhlal sınırı aşıldığı için sınavınız sonlandırıldı ve otomatik gönderildi."
+          : "Sınavınız sonlandırıldı.";
+    setBody(
+      '<div style="text-align:center;padding:22px 10px;">' +
+      '<div style="font-size:2rem;margin-bottom:8px;">⛔</div>' +
+      '<div style="font-weight:900;font-size:1.1rem;color:var(--text);">Sınav sonlandırıldı</div>' +
+      '<div style="color:var(--text-2);margin-top:8px;line-height:1.6;">' + esc(mesaj) + "</div>" +
+      '<div style="margin-top:14px;">' +
+      '<a class="btn btn-primary" href="student-exams.html" style="text-decoration:none;">Sınavlara dön</a>' +
+      "</div></div>"
+    );
+  }
+
+  var clipboardGuardInstalled = false;
+  /** Aynı türden art arda gelen engelleri saniyede bir kez kaydeder. */
+  var lastBlockLogAt = {};
+
+  function logBlockedOnce(kind, details) {
+    var now = Date.now();
+    if (lastBlockLogAt[kind] && now - lastBlockLogAt[kind] < 1000) return;
+    lastBlockLogAt[kind] = now;
+    logProctor(kind, true, details || {})
+      .then(function () { autoSubmitIfNeeded(); })
+      .catch(function () {});
+  }
+
+  /**
+   * Kopyala / kes / yapıştır / sağ tık / geliştirici araçları kısayolları.
+   *
+   * Önceki sürümde bunlar engelleniyordu ama YALNIZCA klavye yolu kayda
+   * geçiyordu: sağ tık menüsüyle veya orta tık ile yapıştırma sessizce
+   * engelleniyor, hiçbir iz bırakmıyordu. Ayrıca F12 / Ctrl+Shift+I gibi
+   * geliştirici araç kısayolları hiç ele alınmıyordu.
+   */
   function hardBlockCopyPaste() {
-    var block = function (e) { e.preventDefault(); return false; };
-    ["copy", "cut", "paste"].forEach(function (ev) { document.addEventListener(ev, block, true); });
-    document.addEventListener("contextmenu", block, true);
+    if (clipboardGuardInstalled) return;
+    clipboardGuardInstalled = true;
+
+    ["copy", "cut", "paste"].forEach(function (ev) {
+      document.addEventListener(ev, function (e) {
+        e.preventDefault();
+        logBlockedOnce("clipboard_blocked", { action: ev });
+        return false;
+      }, true);
+    });
+
+    document.addEventListener("contextmenu", function (e) {
+      e.preventDefault();
+      logBlockedOnce("context_menu_blocked", {});
+      return false;
+    }, true);
+
+    // Metin seçimini de kapat: seçim olmadan kopyalama denemesi de azalır.
+    document.body.classList.add("exam-no-select");
+
     document.addEventListener("keydown", function (e) {
       var k = String(e.key || "").toLowerCase();
-      if ((e.ctrlKey || e.metaKey) && (k === "c" || k === "v" || k === "x" || k === "a" || k === "p" || k === "s")) {
+      var ctrl = e.ctrlKey || e.metaKey;
+
+      // Geliştirici araçları: F12, Ctrl+Shift+I/J/C, Ctrl+U (kaynak görüntüle)
+      if (k === "f12" || (ctrl && e.shiftKey && (k === "i" || k === "j" || k === "c")) || (ctrl && k === "u")) {
         e.preventDefault();
-        logProctor("key_blocked", true, { key: k });
+        e.stopPropagation();
+        logBlockedOnce("devtools_shortcut", { key: k, shift: !!e.shiftKey });
+        return;
+      }
+
+      // Pano ve yazdırma/kaydetme
+      if (ctrl && (k === "c" || k === "v" || k === "x" || k === "a" || k === "p" || k === "s")) {
+        e.preventDefault();
+        logBlockedOnce("key_blocked", { key: k });
       }
     }, true);
   }
@@ -682,13 +865,30 @@
     proctorLines.push(
       '⚠️ <strong>Sekme ve odak:</strong> Başka tarayıcı <strong>sekmesine</strong> geçmek veya <strong>başka programa</strong> geçmek (ör. <strong>Ctrl+Tab</strong>, <strong>Alt+Tab</strong>, başka sekmeye tıklamak) sistem tarafından algılanır ve <strong style="color:var(--red);">ihlal</strong> olarak kaydedilir. Sınav bitene kadar <strong>yalnızca bu sekmede</strong> kalın; ihlal sayısı dolunca sınav otomatik bitebilir.'
     );
-    if (pr.require_fullscreen) proctorLines.push("⛶ <strong>Tam ekran:</strong> Tam ekrandan çıkmak ihlal sayılır (geri sayımlı uyarı).");
-    if (pr.require_camera) {
+    if (pr.require_fullscreen) {
       proctorLines.push(
-        "📷 <strong>Kamera:</strong> Açık kalmalı; kadrajda yüz tespiti yerelde yapılır (video kaydı sunucuya gönderilmez)."
+        "⛶ <strong>Tam ekran:</strong> Tam ekrandan çıkmak <strong style=\"color:var(--red);\">ihlal</strong> sayılır. " +
+        GRACE_SEC + " saniyelik geri sayım başlar; süre <strong>gerçek zamana göre</strong> işler (sekmeyi arka plana almak geri sayımı durdurmaz). " +
+        "Geri dönmezseniz sınav otomatik gönderilir."
       );
     }
-    if (pr.block_copy_paste) proctorLines.push("📋 <strong>Kopyala / yapıştır / kısayollar:</strong> Engellenir; ihlal oluşturabilir.");
+    if (pr.require_camera) {
+      proctorLines.push(
+        "📷 <strong>Kamera:</strong> Sınav boyunca açık kalmalı ve yüzünüz kadrajda olmalı. " +
+        "Görüntü <strong>yalnızca tarayıcınızda</strong> işlenir, sunucuya gönderilmez. " +
+        "Kadrajda <strong>yüz olmaması</strong>, <strong>birden fazla kişi</strong> görünmesi veya kameranın kapatılması ihlaldir."
+      );
+    }
+    if (pr.block_copy_paste) {
+      proctorLines.push(
+        "📋 <strong>Kopyala / yapıştır / sağ tık / geliştirici araçları:</strong> Engellenir ve <strong style=\"color:var(--red);\">ihlal</strong> olarak kaydedilir."
+      );
+    }
+    proctorLines.push(
+      "⏱ <strong>Süre ve gönderim:</strong> Cevaplarınız otomatik kaydedilir. Süre dolduğunda sınav <strong>sunucu tarafından</strong> kapatılır ve " +
+      "o ana kadarki cevaplarınız değerlendirilir; süre dolduktan sonra gönderilen cevaplar dikkate alınmaz. " +
+      "Sayfayı kapatmak denemeyi iptal etmez."
+    );
     document.getElementById("proctorText").innerHTML = proctorLines.join('<br><span style="display:block;height:10px;"></span>');
 
     viol = 0;
@@ -894,19 +1094,99 @@
       checkFullscreenViolation("poll");
     }, 350);
 
-    setInterval(function () {
-      if (exam && exam.proctor && exam.proctor.require_camera && stream) {
-        var tr = stream.getVideoTracks()[0];
-        if (tr && tr.readyState === "ended") {
-          logProctor("camera_ended_poll", true, {});
-          autoSubmitIfNeeded();
+    // Kamera durumu: yalnızca "ended" değil, kapatılan/susturulan track de yakalanır.
+    // track.enabled = false konsolda tek satırla yapılabiliyordu ve fark edilmiyordu.
+    cameraPollInterval = setInterval(function () {
+      if (!attempt || !attempt.attempt_id) return;
+      if (!(exam && exam.proctor && exam.proctor.require_camera)) return;
+      if (!stream) return;
+      var tr = stream.getVideoTracks()[0];
+      if (!tr) return;
+      if (tr.readyState === "ended") {
+        if (!cameraOffLatch) {
+          cameraOffLatch = true;
+          logProctor("camera_ended_poll", true, {}).then(autoSubmitIfNeeded).catch(function () {});
         }
+        return;
       }
-    }, 2000);
+      if (tr.enabled === false || tr.muted === true) {
+        if (!cameraOffLatch) {
+          cameraOffLatch = true;
+          logProctor("camera_disabled", true, { enabled: tr.enabled, muted: tr.muted })
+            .then(autoSubmitIfNeeded)
+            .catch(function () {});
+        }
+        return;
+      }
+      cameraOffLatch = false;
+    }, 1500);
+
+    // Odak kaybı: ikinci ekranda başka pencereye tıklamak her zaman
+    // visibilitychange üretmez, ama blur üretir.
+    window.addEventListener("blur", onWindowBlur);
+    window.addEventListener("focus", onWindowFocus);
+
+    // Sekme/pencere kapatma: deneme açıkta kalmasın, cevaplar kaydolsun.
+    window.addEventListener("pagehide", onPageHide);
+
+    // Düzenli nabız — istemci canlı olmasa bile sunucu son durumu bilir
+    // ve cevaplar otomatik kaydedilir.
+    heartbeatInterval = setInterval(function () {
+      if (!attempt || !attempt.attempt_id) return;
+      logProctor("heartbeat", false, {}).catch(function () {});
+    }, 15000);
 
     if (exam && exam.proctor && exam.proctor.require_camera) {
       initFaceWatch();
     }
+  }
+
+  /** Sayfa kapanırken son cevapları ve terk bilgisini gönderir (fetch iptal olur, beacon olmaz). */
+  function onPageHide() {
+    if (!attempt || !attempt.attempt_id) return;
+    var payload = JSON.stringify({
+      attempt_id: attempt.attempt_id,
+      event_type: "page_abandoned",
+      details: {},
+      answers: answers,
+      token: token,
+    });
+    try {
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(
+          API + "/exams/" + examId + "/proctor-beacon",
+          new Blob([payload], { type: "application/json" })
+        );
+      }
+    } catch (e) {}
+  }
+
+  function onWindowBlur() {
+    if (!attempt || !attempt.attempt_id) return;
+    if (windowBlurLatch) return;
+    windowBlurLatch = true;
+    logProctor("window_blur", true, {})
+      .then(function () { autoSubmitIfNeeded(); })
+      .catch(function () {});
+  }
+
+  function onWindowFocus() {
+    windowBlurLatch = false;
+  }
+
+  /** Tüm gözetim zamanlayıcılarını ve dinleyicilerini durdurur. */
+  function stopAllProctorWatchers() {
+    [fsPollInterval, visibilityPollInterval, faceCheckInterval, cameraPollInterval, heartbeatInterval, timerInt]
+      .forEach(function (h) { if (h) clearInterval(h); });
+    fsPollInterval = null;
+    visibilityPollInterval = null;
+    faceCheckInterval = null;
+    cameraPollInterval = null;
+    heartbeatInterval = null;
+    timerInt = null;
+    window.removeEventListener("blur", onWindowBlur);
+    window.removeEventListener("focus", onWindowFocus);
+    window.removeEventListener("pagehide", onPageHide);
   }
 
   function autoSubmitIfNeeded() {
@@ -936,10 +1216,10 @@
     if (!attempt || !attempt.attempt_id) return;
     exitExamSessionMode();
     clearGraceModal();
-    if (faceCheckInterval) {
-      clearInterval(faceCheckInterval);
-      faceCheckInterval = null;
-    }
+    // Tüm yoklama döngüleri ve dinleyiciler burada durur. Önceden kamera
+    // yoklaması bir değişkende tutulmadığı için gönderimden sonra da
+    // çalışmaya devam ediyordu.
+    stopAllProctorWatchers();
     var btn = document.getElementById("submitBtn");
     if (btn) {
       btn.disabled = true;
@@ -954,17 +1234,12 @@
     });
     var data = await res.json().catch(function () { return {}; });
     stopCamera();
-    if (fsPollInterval) {
-      clearInterval(fsPollInterval);
-      fsPollInterval = null;
-    }
-    if (visibilityPollInterval) {
-      clearInterval(visibilityPollInterval);
-      visibilityPollInterval = null;
-    }
-    if (timerInt) {
-      clearInterval(timerInt);
-      timerInt = null;
+
+    // Süre dolduysa sunucu 409 döner ve denemeyi kendi kapatır; bu bir
+    // "gönderilemedi" hatası değil, sonuçlandırılmış bir denemedir.
+    if (res.status === 409 && data && data.expired) {
+      handleServerTermination("time_up");
+      return;
     }
 
     if (!res.ok) {

@@ -204,6 +204,53 @@ tarafındaki listeden okunur.
 
 ---
 
+## 11. Sınav gözetimi (proctoring)
+
+Gözetimde tespit tarayıcıda yapılır, ama **karar sunucuya aittir**. İstemcinin
+gönderdiği hiçbir iddiaya güvenilmez.
+
+### Sunucu neyi zorunlu kılar
+
+| Kontrol | Davranış |
+|---------|----------|
+| **Süre** | `started_at + duration` geçtiyse deneme sunucuda kapatılır. Süre dolduktan sonra gelen cevaplar **puanlanmaz**; `409` döner. Öncesinde süre hiç kontrol edilmiyordu — öğrenci sınavı başlatıp saatler sonra kaynaklara bakarak gönderim yapabiliyordu. |
+| **İhlal kararı** | Bir olayın ihlal olup olmadığını `PROCTOR_EVENTS` tablosu belirler. İstemci `is_violation: false` yollasa da sunucu kendi kararını uygular. |
+| **Olay türü** | İzin listesinde olmayan tür `400` ile reddedilir (keyfî olay yazımı engellenir). |
+| **Sayaç** | `violations_count = violations_count + 1` — atomik. Önceki oku-sonra-yaz yaklaşımı eşzamanlı yoklama olaylarında ihlal kaybediyordu. |
+| **Sonlandırma** | Tavan aşılınca denemeyi sunucu kapatır; istemcinin auto-submit çağrısını beklemez. |
+| **Cevap koruması** | Cevaplar her gözetim olayında otomatik kaydedilir. Süre dolduğunda veya sekme kapandığında bu kayda göre puanlanır. |
+| **Sekme kapatma** | `sendBeacon` ile `/proctor-beacon` çağrılır; deneme açıkta kalmaz, son cevaplar saklanır. Token gövdede taşınır (URL'de değil — query string loglara düşer). |
+| **Hız sınırı** | Kullanıcı başına 240 olay/dk; `details` alanı 2 KB ile sınırlı. |
+
+### İstemci tarafındaki iyileştirmeler
+
+- **Tam ekran:** geri sayım artık **duvar saatine** bağlı. Öncesinde her tick'te
+  sayaç azaltılıyordu; tarayıcı arka plandaki sekmelerde `setInterval`'ı
+  yavaşlattığı için öğrenci tam ekrandan çıkıp başka pencereye geçtiğinde
+  geri sayım fiilen duruyordu.
+- **Kamera:** model CDN'den yüklenemezse kadraj denetimi artık **sessizce
+  kapanmıyor** — `face_watch_unavailable` ihlali kaydedilir ve kamera kutusunda
+  kırmızı uyarı görünür. Ek olarak **birden fazla yüz** (`multiple_faces`) ve
+  `track.enabled = false` / `muted` ile **kapatılan kamera** de yakalanır.
+- **Pano ve kısayollar:** sağ tık menüsü ve fare ile yapıştırma da artık kayda
+  geçer (önceden yalnızca klavye yolu loglanıyordu). F12, Ctrl+Shift+I/J/C ve
+  Ctrl+U eklendi; sınav sırasında metin seçimi kapatıldı.
+- **Odak kaybı:** `visibilitychange`'e ek olarak `window.blur` izlenir — ikinci
+  ekranda başka pencereye tıklamak her zaman sayfayı gizlemez.
+- **Temizlik:** gönderimden sonra tüm yoklama döngüleri durdurulur. Kamera
+  yoklaması bir değişkende tutulmadığı için sınav bittikten sonra da
+  çalışmaya devam ediyordu.
+
+### Sınırı
+
+Gözetim, JavaScript'i devre dışı bırakmayan veya istemciyi değiştirmeyen bir
+kullanıcı için caydırıcıdır. Kararlı bir saldırgan tarayıcı konsolundan
+sinyalleri susturabilir — bu durumda ihlal kaydı oluşmaz, ancak **süre ve
+puanlama yine sunucuda uygulanır**. Yüksek riskli sınavlar için kilitli tarayıcı
+(lockdown browser) veya fiziksel gözetim gerekir.
+
+---
+
 ## 10. Bilinen kalan riskler
 
 | Konu | Durum / öneri |
@@ -212,5 +259,5 @@ tarafındaki listeden okunur.
 | CSP `'unsafe-inline'` | Inline script/handler'lar HTML'den ayrıştırılırsa nonce tabanlı CSP'ye geçilebilir. |
 | jsDelivr bağımlılıkları | `qrcode.js` ve sınav gözetimi için `tfjs`/`blazeface` hâlâ CDN'den gelir. İnternet erişimi olan bir ortamda SRI hash'i sabitleyin (ilgili HTML dosyalarında TODO notu var) veya yerel kopyaya geçin. Chart.js yerel kopyaya alındı. |
 | `GET /api/students/export/csv?withPasswords=1` | **Tüm** öğrencilerin şifresini sıfırlar. Admin yetkisi ister ve oturumları kapatır, ama geri alınamaz bir toplu işlemdir; arayüzdeki onay adımını kaldırmayın. |
-| Sınav gözetimi | Kamera/tam ekran kontrolleri istemci tarafındadır; kararlı bir kullanıcı atlatabilir. Sunucu yalnızca ihlal olaylarını kaydeder. |
+| Sınav gözetimi | Tespit istemcide yapılır; kararlı bir kullanıcı sinyalleri susturabilir. Ancak **süre, ihlal sayımı ve sonlandırma sunucuda zorunlu kılınır** (bkz. bölüm 11) — sinyalleri susturmak süreyi uzatmaz veya geç gönderimi geçerli kılmaz. |
 | Hız sınırı deposu | Bellek içidir. Birden fazla sunucu örneği çalıştırırsanız Redis destekli bir store kullanın. |

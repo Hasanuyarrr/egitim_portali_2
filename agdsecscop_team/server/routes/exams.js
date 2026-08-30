@@ -1,11 +1,190 @@
 const express = require("express");
+const { rateLimit, ipKeyGenerator } = require("express-rate-limit");
 const pool = require("../db/client");
 const { authenticate, requireAdmin, requireStudent } = require("../middleware/auth");
 const { guardNumericParams } = require("../lib/validate");
 
 const router = express.Router();
 guardNumericParams(router, ["id"]);
+
+/**
+ * POST /api/exams/:id/proctor-beacon
+ *
+ * navigator.sendBeacon() özel başlık gönderemez, bu yüzden token gövdede
+ * taşınır (URL'de DEĞİL — query string loglara ve tarayıcı geçmişine düşer).
+ * Bu rota, router.use(authenticate) satırından ÖNCE tanımlanır; token'ı
+ * gövdeden alıp Authorization başlığına yazar ve normal doğrulamadan geçirir.
+ *
+ * Amaç: öğrenci sekmeyi kapattığında denemenin açıkta kalmaması ve o ana
+ * kadarki cevapların kaydedilmesi.
+ */
+router.post(
+  "/:id/proctor-beacon",
+  (req, _res, next) => {
+    if (!req.headers.authorization && typeof req.body?.token === "string") {
+      req.headers.authorization = "Bearer " + req.body.token;
+    }
+    next();
+  },
+  authenticate,
+  requireStudent,
+  async (req, res) => {
+    try {
+      const examId = Number(req.params.id);
+      const attemptId = Number(req.body?.attempt_id);
+      if (!Number.isFinite(examId) || !Number.isFinite(attemptId)) {
+        return res.status(400).json({ error: "Eksik parametre." });
+      }
+
+      const exQ = await pool.query(`SELECT * FROM general_exams WHERE id = $1`, [examId]);
+      if (!exQ.rows[0]) return res.status(404).json({ error: "Sınav bulunamadı." });
+      const ex = normalizeExamRow(exQ.rows[0]);
+
+      const atQ = await pool.query(
+        `SELECT * FROM general_exam_attempts WHERE id = $1 AND exam_id = $2 AND user_id = $3`,
+        [attemptId, examId, req.user.id]
+      );
+      const at = atQ.rows[0];
+      if (!at || at.submitted_at) return res.json({ ok: true, ignored: true });
+
+      const autosave = normalizeAnswers(req.body?.answers, ex.questions.length);
+      if (autosave) {
+        await pool.query(
+          `UPDATE general_exam_attempts SET answers = $2::jsonb WHERE id = $1 AND submitted_at IS NULL`,
+          [attemptId, JSON.stringify(autosave)]
+        );
+      }
+      await pool.query(
+        `INSERT INTO general_exam_proctor_events (attempt_id, event_type, details)
+         VALUES ($1,'page_abandoned','{}'::jsonb)`,
+        [attemptId]
+      );
+      await pool.query(
+        `UPDATE general_exam_attempts SET violations_count = violations_count + 1
+         WHERE id = $1 AND submitted_at IS NULL`,
+        [attemptId]
+      );
+      res.json({ ok: true });
+    } catch (err) {
+      console.error("POST /exams/:id/proctor-beacon:", err.message);
+      res.status(500).json({ error: "Sunucu hatası." });
+    }
+  }
+);
+
 router.use(authenticate);
+
+/**
+ * Gözetim olaylarının otoritesi SUNUCUDUR.
+ * İstemcinin gönderdiği `is_violation` alanına güvenilmez — öğrenci onu
+ * her olay için false yollayabilir. Bir olayın ihlal olup olmadığı burada,
+ * olay türüne bakılarak belirlenir. Listede olmayan tür reddedilir.
+ */
+const PROCTOR_EVENTS = {
+  // Bilgi amaçlı — ihlal değil
+  started:                { violation: false },
+  heartbeat:              { violation: false },
+  fullscreen_unsupported: { violation: false },
+  time_up:                { violation: false },   // süre dolması öğrencinin ihlali değil
+  auto_submit:            { violation: false },
+  manual_submit:          { violation: false },
+  face_watch_started:     { violation: false },
+
+  // İhlaller
+  fullscreen_exit:        { violation: true },
+  tab_hidden:             { violation: true },
+  window_blur:            { violation: true },
+  face_not_in_frame:      { violation: true },
+  multiple_faces:         { violation: true },
+  camera_ended:           { violation: true },
+  camera_ended_poll:      { violation: true },
+  camera_disabled:        { violation: true },
+  face_watch_unavailable: { violation: true },
+  key_blocked:            { violation: true },
+  clipboard_blocked:      { violation: true },
+  context_menu_blocked:   { violation: true },
+  devtools_shortcut:      { violation: true },
+  leave_confirmed:        { violation: true },
+  page_abandoned:         { violation: true },
+};
+
+/** Ağ gecikmesi payı: son anda gönderilen cevap kaybolmasın. */
+const LATE_GRACE_MS = 45 * 1000;
+
+/** details alanı için üst sınır — sınırsız JSON ile tablo şişirilmesin. */
+const MAX_DETAILS_BYTES = 2000;
+
+/**
+ * Gözetim uçları saniyede birden çok kez çağrılabilir (yoklama döngüleri),
+ * ama makul bir tavan olmalı: aksi hâlde tek bir öğrenci olay tablosunu şişirir.
+ */
+const proctorLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 240,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => (req.user?.id ? `proctor:u${req.user.id}` : `proctor:${ipKeyGenerator(req.ip)}`),
+  message: { error: "Çok fazla gözetim olayı." },
+});
+
+/** Denemenin bitiş anı (ms). */
+function attemptDeadlineMs(startedAt, durationMinutes) {
+  return new Date(startedAt).getTime() + Math.max(1, Number(durationMinutes || 30)) * 60 * 1000;
+}
+
+function scoreAnswers(ex, answers) {
+  let correct = 0;
+  for (let i = 0; i < ex.questions.length; i++) {
+    if (Number(answers[i]) === Number(ex.questions[i].correct_index)) correct += 1;
+  }
+  const total = ex.questions.length;
+  const score = total ? Math.round((correct / total) * 100) : 0;
+  return { correct, total, score, passed: score >= Number(ex.pass_score || 70) };
+}
+
+/** Cevap dizisini normalize eder (yalnızca şık indeksi veya null). */
+function normalizeAnswers(raw, questionCount) {
+  if (!Array.isArray(raw)) return null;
+  if (raw.length > 500) return null;
+  const out = [];
+  for (let i = 0; i < questionCount; i++) {
+    const n = Number(raw[i]);
+    out.push(Number.isSafeInteger(n) && n >= 0 && n < 100 ? n : null);
+  }
+  return out;
+}
+
+/**
+ * Süresi dolmuş ve hâlâ açık olan denemeyi kapatır.
+ * Puanlama, istemcinin o an gönderdiği veriyle değil, süre içinde
+ * otomatik kaydedilen (autosave) cevaplarla yapılır — süre dolduktan
+ * sonra gelen cevaplar dikkate alınmaz.
+ */
+async function finalizeIfExpired(attemptRow, ex) {
+  if (!attemptRow || attemptRow.submitted_at) return null;
+  const deadline = attemptDeadlineMs(attemptRow.started_at, ex.duration_minutes);
+  if (Date.now() <= deadline + LATE_GRACE_MS) return null;
+
+  const saved = parseJsonbField(attemptRow.answers, []);
+  const answers = Array.isArray(saved) ? saved : [];
+  const { score, passed } = scoreAnswers(ex, answers);
+
+  const up = await pool.query(
+    `UPDATE general_exam_attempts
+     SET submitted_at = to_timestamp($2 / 1000.0), score = $3, passed = $4
+     WHERE id = $1 AND submitted_at IS NULL
+     RETURNING id, started_at, submitted_at, score, passed, violations_count`,
+    [attemptRow.id, deadline, score, passed]
+  );
+  if (up.rows[0]) {
+    pool.query(
+      `INSERT INTO general_exam_proctor_events (attempt_id, event_type, details)
+       VALUES ($1,'auto_finalized_time_up','{}'::jsonb)`,
+      [attemptRow.id]
+    ).catch(() => {});
+  }
+  return up.rows[0] || null;
+}
 
 // Lightweight migrations (startup safe). Must run in order — FK deps + parallel races caused
 // "relation does not exist" when ALTER ran before CREATE finished.
@@ -462,44 +641,125 @@ router.post("/:id/start", requireStudent, async (req, res) => {
   }
 });
 
-router.post("/:id/proctor", requireStudent, async (req, res) => {
+router.post("/:id/proctor", proctorLimiter, requireStudent, async (req, res) => {
   try {
     const examId = Number(req.params.id);
     const attemptId = Number(req.body?.attempt_id);
     const eventType = String(req.body?.event_type || "").trim();
-    const details = req.body && typeof req.body.details === "object" ? req.body.details : {};
-    const isViolation = req.body?.is_violation === true;
 
     if (!Number.isFinite(examId) || !Number.isFinite(attemptId) || !eventType) {
       return res.status(400).json({ error: "Eksik parametre." });
     }
+    const spec = Object.prototype.hasOwnProperty.call(PROCTOR_EVENTS, eventType)
+      ? PROCTOR_EVENTS[eventType]
+      : null;
+    if (!spec) return res.status(400).json({ error: "Bilinmeyen olay türü." });
+
+    // details boyutunu sınırla — istemci buraya keyfî JSON yazabilir.
+    let details = req.body && typeof req.body.details === "object" && req.body.details !== null
+      ? req.body.details
+      : {};
+    let detailsJson = JSON.stringify(details);
+    if (!detailsJson || Buffer.byteLength(detailsJson, "utf8") > MAX_DETAILS_BYTES) {
+      detailsJson = JSON.stringify({ truncated: true });
+    }
+
+    const exQ = await pool.query(`SELECT * FROM general_exams WHERE id = $1`, [examId]);
+    if (!exQ.rows[0]) return res.status(404).json({ error: "Sınav bulunamadı." });
+    const ex = normalizeExamRow(exQ.rows[0]);
 
     const atQ = await pool.query(
-      `SELECT a.*, e.proctor
-       FROM general_exam_attempts a
-       JOIN general_exams e ON e.id = a.exam_id
-       WHERE a.id = $1 AND a.exam_id = $2 AND a.user_id = $3`,
+      `SELECT * FROM general_exam_attempts WHERE id = $1 AND exam_id = $2 AND user_id = $3`,
       [attemptId, examId, req.user.id]
     );
     const at = atQ.rows[0];
     if (!at) return res.status(404).json({ error: "Deneme bulunamadı." });
-    if (at.submitted_at) return res.json({ ok: true, ignored: true });
+
+    if (at.submitted_at) {
+      return res.json({
+        ok: true,
+        ignored: true,
+        terminated: true,
+        reason: "already_submitted",
+        violations_count: Number(at.violations_count || 0),
+        max_violations: ex.proctor.max_violations,
+      });
+    }
+
+    // Süre dolmuşsa deneme burada kapanır; istemci saatine güvenilmez.
+    const finalized = await finalizeIfExpired(at, ex);
+    if (finalized) {
+      return res.json({
+        ok: true,
+        terminated: true,
+        reason: "time_up",
+        violations_count: Number(finalized.violations_count || 0),
+        max_violations: ex.proctor.max_violations,
+      });
+    }
+
+    // Cevapların periyodik otomatik kaydı. Süre dolduğunda puanlama bu
+    // kayda göre yapılır; öğrenci sekmeyi kapatsa da ilerlemesi korunur.
+    const autosave = normalizeAnswers(req.body?.answers, ex.questions.length);
+    if (autosave) {
+      await pool.query(
+        `UPDATE general_exam_attempts SET answers = $2::jsonb WHERE id = $1 AND submitted_at IS NULL`,
+        [attemptId, JSON.stringify(autosave)]
+      );
+    }
 
     await pool.query(
       `INSERT INTO general_exam_proctor_events (attempt_id, event_type, details) VALUES ($1,$2,$3::jsonb)`,
-      [attemptId, eventType, JSON.stringify(details)]
+      [attemptId, eventType, detailsJson]
     );
 
+    // Atomik artırım: yoklama döngüleri eşzamanlı olay gönderdiğinde
+    // oku-sonra-yaz yarışı ihlalleri kaybediyordu.
     let violations = Number(at.violations_count || 0);
-    if (isViolation) {
-      violations += 1;
-      await pool.query(`UPDATE general_exam_attempts SET violations_count = $2 WHERE id = $1`, [attemptId, violations]);
+    if (spec.violation) {
+      const inc = await pool.query(
+        `UPDATE general_exam_attempts
+         SET violations_count = violations_count + 1
+         WHERE id = $1 AND submitted_at IS NULL
+         RETURNING violations_count`,
+        [attemptId]
+      );
+      if (inc.rows[0]) violations = Number(inc.rows[0].violations_count || 0);
     }
 
-    const proctor = at.proctor && typeof at.proctor === "object" ? at.proctor : {};
-    const maxV = Math.max(0, Number(proctor.max_violations || 3));
+    const maxV = ex.proctor.max_violations;
+
+    // İhlal tavanı aşıldıysa sonlandırma kararını da sunucu verir —
+    // istemcinin auto-submit çağrısını beklemez.
+    if (maxV > 0 && violations >= maxV && ex.proctor.auto_submit_on_violation) {
+      const saved = parseJsonbField(at.answers, []);
+      const { score, passed } = scoreAnswers(ex, Array.isArray(saved) ? saved : []);
+      const up = await pool.query(
+        `UPDATE general_exam_attempts
+         SET submitted_at = NOW(), score = $2, passed = $3
+         WHERE id = $1 AND submitted_at IS NULL
+         RETURNING id`,
+        [attemptId, score, passed]
+      );
+      if (up.rows[0]) {
+        pool.query(
+          `INSERT INTO general_exam_proctor_events (attempt_id, event_type, details)
+           VALUES ($1,'auto_finalized_max_violations',$2::jsonb)`,
+          [attemptId, JSON.stringify({ violations })]
+        ).catch(() => {});
+      }
+      return res.json({
+        ok: true,
+        terminated: true,
+        reason: "max_violations",
+        violations_count: violations,
+        max_violations: maxV,
+      });
+    }
+
     res.json({ ok: true, violations_count: violations, max_violations: maxV });
-  } catch {
+  } catch (err) {
+    console.error("POST /exams/:id/proctor:", err.message);
     res.status(500).json({ error: "Sunucu hatası." });
   }
 });
@@ -534,13 +794,21 @@ router.post("/:id/submit", requireStudent, async (req, res) => {
       });
     }
 
-    let correct = 0;
-    for (let i = 0; i < ex.questions.length; i++) {
-      if (Number(answers[i]) === Number(ex.questions[i].correct_index)) correct += 1;
+    // Süre dolmuşsa geç gelen cevaplar puanlanmaz; deneme otomatik kaydedilen
+    // cevaplarla kapatılır. Bu kontrol olmadan öğrenci sınavı başlatıp saatler
+    // sonra — kaynaklara bakarak — gönderim yapabiliyordu.
+    const expired = await finalizeIfExpired(at, ex);
+    if (expired) {
+      return res.status(409).json({
+        error: "Sınav süresi doldu. Cevaplarınız süre dolduğu andaki hâliyle değerlendirildi.",
+        attempt_id: attemptId,
+        score: Number(expired.score || 0),
+        passed: !!expired.passed,
+        expired: true,
+      });
     }
-    const total = ex.questions.length;
-    const score = total ? Math.round((correct / total) * 100) : 0;
-    const passed = score >= Number(ex.pass_score || 70);
+
+    const { correct, total, score, passed } = scoreAnswers(ex, answers);
 
     const up = await pool.query(
       `
