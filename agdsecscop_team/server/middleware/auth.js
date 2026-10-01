@@ -100,9 +100,14 @@ async function authenticate(req, res, next) {
     return res.status(401).json({ error: "Geçersiz veya süresi dolmuş token." });
   }
 
-  // Kapsam ayrımı: medya token'ı API'de, oturum token'ı da URL'de kullanılamaz.
-  const isMediaToken = payload.scope === "media";
-  if (viaQuery !== isMediaToken) {
+  // Kapsam ayrımı — beklenen kapsam TAM eşleşmeli.
+  // Önceden yalnızca "medya mı değil mi" bakılıyordu; bu yüzden httpOnly
+  // sayfa çerezi (scope:"page") Authorization başlığına konduğunda geçerli
+  // bir API token'ı gibi kabul ediliyordu. Her kapsam yalnızca kendi
+  // kanalında geçerlidir.
+  const scope = payload.scope || "session";
+  const expectedScope = viaQuery ? "media" : "session";
+  if (scope !== expectedScope) {
     return res.status(401).json({ error: "Bu token bu istek için geçerli değil." });
   }
 
@@ -152,4 +157,36 @@ function requireStudent(req, res, next) {
   next();
 }
 
-module.exports = { authenticate, requireAdmin, requireStudent, invalidateUser };
+/**
+ * Panel sayfalarını sunmadan önce oturum çerezini çözer.
+ * API'deki authenticate() ile aynı tazelik garantilerini kullanır
+ * (silinen kullanıcı, değişen rol, iptal edilmiş oturum).
+ *
+ * @returns {Promise<{id,email,name,role}|null>}
+ */
+async function resolvePageSession(token) {
+  if (!token) return null;
+  let payload;
+  try {
+    payload = jwt.verify(token, config.JWT_SECRET);
+  } catch {
+    return null;
+  }
+  // Sayfa çerezi yalnızca sayfa sunmak içindir; API bearer token'ı
+  // veya medya token'ı buraya geçemez.
+  if (payload.scope !== "page") return null;
+
+  const id = Number(payload.id);
+  if (!Number.isSafeInteger(id) || id <= 0) return null;
+
+  let entry;
+  try {
+    entry = await loadUser(id);
+  } catch {
+    return null;
+  }
+  if (!entry || entry.tokenVersion !== Number(payload.tv || 0)) return null;
+  return entry.user;
+}
+
+module.exports = { authenticate, requireAdmin, requireStudent, invalidateUser, resolvePageSession };

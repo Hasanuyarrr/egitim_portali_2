@@ -189,8 +189,15 @@ function toast(msg, type = "success") {
 
 // ── Logout ────────────────────────────────────────────
 function logout() {
-  localStorage.clear();
-  window.location.href = "login.html";
+  // Panel oturum çerezi httpOnly'dir; JavaScript silemez, sunucudan
+  // temizlenmesi gerekir. İstek başarısız olsa da çıkışı tamamlarız.
+  const done = () => {
+    localStorage.clear();
+    window.location.href = "login.html";
+  };
+  fetch(`${API}/auth/logout`, { method: "POST", credentials: "same-origin" })
+    .then(done)
+    .catch(done);
 }
 
 // ── Sidebar HTML builder ──────────────────────────────

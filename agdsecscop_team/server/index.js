@@ -10,6 +10,7 @@ const {
   PUBLIC_ROOT_FILES,
   isAllowedPanelFile,
 } = require("./middleware/security");
+const { pageGuard } = require("./middleware/page-guard");
 
 const app = express();
 
@@ -112,11 +113,14 @@ const STATIC_OPTS = {
 // /admin ve /admin/ → giriş sayfası
 app.get(["/admin", "/admin/"], (_req, res) => res.redirect(302, "/admin/login.html"));
 
-// Panel varlıkları (yalnızca izin verilen uzantılar)
+// Panel varlıkları: uzantı izin listesi + SUNUCU TARAFI oturum kontrolü.
+// Önceden panelin tamamı herkese açıktı; erişim kontrolü yalnızca
+// admin-shared.js içindeki istemci tarafı yönlendirmesiydi ve `view-source:`,
+// `curl` veya JS kapalı bir tarayıcı bunu tamamen atlıyordu.
 app.use("/admin", (req, res, next) => {
   if (!isAllowedPanelFile(req.path)) return res.status(404).send("Not found");
   next();
-}, express.static(PANEL_DIR, STATIC_OPTS));
+}, pageGuard(), express.static(PANEL_DIR, STATIC_OPTS));
 
 // Kök seviyedeki tanıtım sayfaları — sabit izin listesi (path traversal imkânsız)
 app.get(/^\/(?:[^/]*)$/, (req, res, next) => {

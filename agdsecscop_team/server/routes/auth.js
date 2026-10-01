@@ -6,6 +6,7 @@ const pool      = require("../db/client");
 const config    = require("../config");
 const { passwordProblem } = require("../lib/validate");
 const { authenticate, invalidateUser } = require("../middleware/auth");
+const { setPageCookie, clearPageCookie } = require("../middleware/page-guard");
 
 const router = express.Router();
 
@@ -56,6 +57,20 @@ const passwordChangeLimiter = rateLimit({
   message: { error: "Çok fazla deneme. Lütfen daha sonra tekrar deneyin." },
 });
 
+/**
+ * Panel sayfalarını sunmak için kullanılan httpOnly çerez token'ı.
+ * Ayrı bir `scope` taşır: bu token API'de bearer olarak kullanılamaz,
+ * API token'ı da sayfa çerezi yerine geçemez.
+ */
+const PAGE_SESSION_SEC = 12 * 60 * 60;
+function signPageToken(user) {
+  return jwt.sign(
+    { id: user.id, role: user.role, tv: Number(user.token_version || 0), scope: "page" },
+    config.JWT_SECRET,
+    { expiresIn: PAGE_SESSION_SEC }
+  );
+}
+
 function signAccessToken(user) {
   return jwt.sign(
     {
@@ -99,6 +114,9 @@ router.post("/login", loginLimiter, async (req, res) => {
     await pool.query("UPDATE users SET last_seen_at = NOW() WHERE id = $1", [user.id]);
 
     const token = signAccessToken(user);
+    // Panel sayfalarının sunucu tarafında korunması için oturum çerezi.
+    setPageCookie(res, signPageToken(user), PAGE_SESSION_SEC, config.isProd);
+
     res.json({
       token,
       user: { id: user.id, email: user.email, name: user.name, role: user.role },
@@ -107,6 +125,17 @@ router.post("/login", loginLimiter, async (req, res) => {
     console.error("Login error:", err.message);
     res.status(500).json({ error: "Sunucu hatası." });
   }
+});
+
+/**
+ * POST /api/auth/logout
+ * Panel oturum çerezini siler. Bearer token istemcide zaten atılır;
+ * çerez httpOnly olduğu için JavaScript tarafından silinemez, bu yüzden
+ * sunucudan temizlenmesi gerekir.
+ */
+router.post("/logout", (req, res) => {
+  clearPageCookie(res, config.isProd);
+  res.json({ ok: true });
 });
 
 // GET /api/auth/me — token'dan mevcut kullanıcıyı döner
@@ -177,6 +206,10 @@ router.post("/change-password", passwordChangeLimiter, authenticate, async (req,
       [hash, req.user.id]
     );
     invalidateUser(req.user.id);   // eski token'lar anında geçersiz
+
+    // token_version arttığı için eski sayfa çerezi de geçersizleşti;
+    // kullanıcı panelden atılmasın diye yenisi verilir.
+    setPageCookie(res, signPageToken(upd.rows[0]), PAGE_SESSION_SEC, config.isProd);
 
     res.json({
       message: "Şifre başarıyla güncellendi.",

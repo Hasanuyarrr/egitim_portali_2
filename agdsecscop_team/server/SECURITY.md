@@ -111,6 +111,64 @@ Oturum token'ı URL'de, medya token'ı da `Authorization` başlığında **redde
 
 ---
 
+## 4a. Panel sayfalarının korunması
+
+**Önceki durum.** `/admin/**` altındaki her dosya herkese açık servis ediliyordu.
+Erişim kontrolü yalnızca `admin-shared.js` içindeki istemci tarafı
+yönlendirmesiydi:
+
+```js
+if (!_token || _user.role !== "admin") location.href = "login.html";
+```
+
+Bu, JavaScript çalıştırmayan hiçbir istemciyi durdurmaz. `view-source:`,
+`curl`, JS kapalı bir tarayıcı veya basit bir eklenti tüm panel iskeletini,
+element kimliklerini, uç nokta adreslerini ve panel JavaScript'ini
+indirebiliyordu.
+
+**Kapsam.** Veri sızmıyordu — API ayrıca Bearer token ister ve kimlik
+doğrulamasız her uç `401` döner. İfşa olan şey yapıydı: saldırgan için
+eksiksiz bir keşif haritası.
+
+**Şimdiki durum.** Girişte `httpOnly` bir oturum çerezi verilir ve panel
+dosyaları bu çerez doğrulanmadan sunulmaz:
+
+| Özellik | Değer |
+|---------|-------|
+| Ad | `sp_session` |
+| Kapsam | `scope: "page"` — API'de bearer olarak kullanılamaz |
+| Bayraklar | `HttpOnly`, `SameSite=Strict`, `Path=/admin`, üretimde `Secure` |
+| Ömür | 12 saat; `token_version` değişince anında geçersiz |
+| Giriş öncesi açık | yalnızca `login.html` ve `admin.css` |
+
+Korumasız istekler: `.html` için `302 → /admin/login.html`, varlıklar için
+`404` (panelin dosya yapısı sızmasın). Panel sayfaları `no-store` ile
+işaretlenir, böylece çıkıştan sonra geri tuşuyla yeniden gösterilemez.
+
+**Rol ayrımı da sunucuda.** `admin-*.html` yalnızca admin oturumuna,
+`student-*.html` yalnızca öğrenci oturumuna servis edilir. Önceden oturum
+açmış bir öğrenci yönetim panelinin tamamını indirebiliyordu.
+
+> **API kimlik doğrulaması değişmedi.** Çerez yalnızca *sayfa sunumu* içindir;
+> API yetkilendirmesi Bearer token ile devam eder. Bu ayrım bilinçlidir:
+> çerez tek başına API'yi açmaz, dolayısıyla bir CSRF vektörüne dönüşmez.
+
+### Kapsam (scope) ayrımı
+
+Token kapsamları artık **tam eşleşme** ile doğrulanır:
+
+| Kapsam | Nerede geçerli |
+|--------|----------------|
+| `session` (varsayılan) | yalnızca `Authorization: Bearer` |
+| `media` | yalnızca medya indirme yolunda `?token=` |
+| `page` | yalnızca `sp_session` çerezi |
+
+Önceki kontrol yalnızca "medya mı değil mi" bakıyordu; bu yüzden sayfa çerezi
+`Authorization` başlığına konduğunda geçerli bir API token'ı sayılıyordu.
+Bu, çerez eklendikten sonra yazılan testle yakalandı ve düzeltildi.
+
+---
+
 ## 4. Yetkilendirme ve veri minimizasyonu
 
 - Tüm API router'ları `authenticate` ile korunur; tek istisna herkese açık
