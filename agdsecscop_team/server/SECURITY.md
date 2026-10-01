@@ -310,6 +310,32 @@ gönderdiği hiçbir iddiaya güvenilmez.
   yoklaması bir değişkende tutulmadığı için sınav bittikten sonra da
   çalışmaya devam ediyordu.
 
+### İstemciye gönderilen kaynak kodda ne olmamalı
+
+`student-exam.html` sınava giren öğrenciye servis edilir; kaynağı
+görüntülenebilir. Tespit **kodu** zorunlu olarak istemcide çalışır, ama
+onu *nasıl atlatacağını anlatan yorumlar* gönderilmemelidir. Dosyadan
+kaldırılan bilgiler:
+
+- Geri sayımın eskiden arka plan sekmelerinde durduğu ve bunun nasıl
+  düzeltildiği (doğrudan bir kaçamak tarifi).
+- Kadraj toleransının "~2 sn @ 500 ms" olduğu açıklaması.
+- Yüz modelinin CDN'den geldiği ve erişilemediğinde denetimin sessizce
+  devre dışı kaldığı notu — ağ engelleyerek tespiti düşürme tarifi.
+- `OBSCURED_MEAN` / `OBSCURED_STD` eşiklerinin "el/kapak/bant" ve
+  "lense dayalı el" olarak ne anlama geldiği.
+- Alt+Tab'ın engellenemediği, sağ tık yoluyla yapıştırmanın eskiden
+  kayda geçmediği gibi kapsam dışı kalan noktalar.
+
+Gerekçeler ve geçmiş zafiyet kayıtları bu belgede (sunucu tarafında,
+istemciye gönderilmez) tutulur. Kod değişmedi, yalnızca yorumlar çıkarıldı.
+
+> **Dürüst sınır:** eşik sabitleri (`OBSCURED_MEAN = 26` gibi) kodda
+> görünür olmaya devam eder ve gizlenemez — tarayıcıda çalışması gerekir.
+> Yorumları kaldırmak kararlı bir saldırganı durdurmaz; yalnızca hazır
+> bir rehber vermeyi bırakır. Bu bir derinlemesine savunma önlemidir,
+> engel değildir.
+
 ### Sınırı
 
 Gözetim, JavaScript'i devre dışı bırakmayan veya istemciyi değiştirmeyen bir

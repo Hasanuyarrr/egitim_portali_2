@@ -728,7 +728,7 @@
 
   function getPreviewVerifyUrl() {
     if (location.protocol === "file:") {
-      return "http://localhost:3000/verify-certificate.html?c=ONIZLEME";
+      return "http://localhost:3001/verify-certificate.html?c=ONIZLEME";
     }
     try {
       const u = new URL("../verify-certificate.html", location.href);

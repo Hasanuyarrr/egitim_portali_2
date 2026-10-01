@@ -588,7 +588,7 @@
     const raw = String(code || "").trim();
     if (!raw) return "";
     if (location.protocol === "file:") {
-      return `http://localhost:3000/verify-certificate.html?c=${encodeURIComponent(raw)}`;
+      return `http://localhost:3001/verify-certificate.html?c=${encodeURIComponent(raw)}`;
     }
     try {
       const u = new URL("../verify-certificate.html", location.href);
@@ -747,7 +747,7 @@
     const qrPayload =
       verifyUrl ||
       (location.protocol === "file:"
-        ? "http://localhost:3000/verify-certificate.html"
+        ? "http://localhost:3001/verify-certificate.html"
         : `${location.origin}/verify-certificate.html`);
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const name = c.recipient_name || user.name || "—";

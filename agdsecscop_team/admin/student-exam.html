@@ -62,8 +62,7 @@
     body.exam-session-active .topbar-avatar {
       display: none !important;
     }
-    /* Kopyalama engelliyken metin seçimi de kapalı olmalı; aksi hâlde
-       seçim yapılabiliyor ve sürükle-bırak ile metin taşınabiliyordu. */
+    /* Kopyalama engelliyken metin seçimi de kapalıdır. */
     body.exam-no-select,
     body.exam-no-select * {
       -webkit-user-select: none;
@@ -193,13 +192,7 @@
   var GRACE_SEC = 10;
   var graceTimer = null;
   var graceSecLeft = 0;
-  /**
-   * Geri sayımın bitiş anı (epoch ms).
-   * Önceden her tick'te graceSecLeft-- yapılıyordu; tarayıcı arka plandaki
-   * sekmelerde setInterval'ı dakikada bire kadar yavaşlattığı için, öğrenci
-   * tam ekrandan çıkıp başka pencereye geçtiğinde geri sayım fiilen duruyordu.
-   * Duvar saati kullanmak bu kaçamağı kapatır.
-   */
+  /** Geri sayımın bitiş anı (epoch ms) — duvar saatine sabitlidir. */
   var graceEndsAt = 0;
   /** "fullscreen" | "face" | null */
   var graceKind = null;
@@ -220,29 +213,17 @@
   var noFaceStreak = 0;
   var faceDetectRunning = false;
   var FACE_CHECK_MS = 500;
-  /** Ardışık "yüz yok" örnekleri (~2 sn @ 500ms) — yanlış alarm azaltır */
   var NO_FACE_STREAK_NEEDED = 4;
-  /**
-   * Kameranın önü açık ve öğrenci kadrajda görünüyor mu?
-   * Yüz modeli varsa yüz sayısına, yoksa kare analizine göre belirlenir.
-   * Grace geri sayımının iptali bu bayrağa bakar.
-   */
+  /** Kameranın önü açık ve öğrenci kadrajda görünüyor mu? */
   var lastFaceInFrame = false;
-  /** Yüz modeli gerçekten yüklendi mi (CDN erişilemeyebilir) */
   var faceModelAvailable = false;
 
-  // ── Kamera örtme tespiti (kütüphane gerektirmez) ──────────────
-  // Yüz modeli CDN'den geliyor ve internet yoksa hiç yüklenmiyor; bu durumda
-  // kamera denetimi tamamen devre dışı kalıyordu (elle kapatmak ihlal
-  // saymıyordu). Kare parlaklık/varyans analizi tarayıcının kendi
-  // canvas API'siyle çalışır ve dış bağımlılığı yoktur.
+  // ── Kamera örtme tespiti ──────────────────────────────────────
   var camCanvas = null;
   var camCtx = null;
   var obscuredStreak = 0;
   var cameraObscuredLatch = false;
-  /** Ortalama parlaklık bunun altındaysa kadraj karanlık (el/kapak/bant). */
   var OBSCURED_MEAN = 26;
-  /** Standart sapma bunun altındaysa kadraj tekdüze (lense dayalı el). */
   var OBSCURED_STD = 10;
 
   // Ortak, tırnak/backtick kaçışlı sürüm (student-shared.js).
@@ -296,9 +277,7 @@
 
   var examKeyboardGuardInstalled = false;
 
-  /**
-   * Tarayıcı sekmesi / yeni sekme kısayolları (tam engellenemez: Alt+Tab işletim sistemindedir).
-   */
+  /** Sekme değiştirme ve yeni sekme kısayollarını engeller. */
   function examSessionKeydownBlock(e) {
     if (!document.body.classList.contains("exam-session-active")) return;
     var k = e.key;
@@ -455,11 +434,7 @@
     startGraceTermination("fullscreen");
   }
 
-  /**
-   * Tam ekrandan çıkış: olay + periyodik kontrol (Escape / F11 / bazı tarayıcılarda event kaçırma).
-   * Tekrar tam ekrana girilene kadar aynı “çıkış” için tek ihlal; yeniden çıkışta yeni ihlal.
-   * Not: Tam ekran ihlalinde sınav, 10 sn geri sayım sonunda biter (anında autoSubmit yok).
-   */
+  /** Tam ekrandan çıkışı olay ve periyodik kontrolle birlikte izler. */
   function checkFullscreenViolation(source) {
     if (!attempt || !attempt.attempt_id) return;
     tryRecoverGrace();
@@ -500,10 +475,7 @@
     return !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
   }
 
-  /**
-   * Grace kapanır yalnızca tüm zorunlu koşullar sağlandığında (ikisi de açıksa VE).
-   * Böylece ihlal bitene kadar 10 sn takip edilir; kısmi düzeltme süreyi sıfırlamaz.
-   */
+  /** Geri sayım yalnızca tüm zorunlu koşullar sağlandığında iptal edilir. */
   function shouldClearGrace() {
     if (!graceTimer) return false;
     var pr = exam && exam.proctor ? exam.proctor : {};
@@ -578,10 +550,7 @@
     }
   }
 
-  /**
-   * Kareyi küçültüp ortalama parlaklık ve standart sapmasını döndürür.
-   * getUserMedia akışı aynı origin sayıldığı için canvas "tainted" olmaz.
-   */
+  /** Kareyi küçültüp ortalama parlaklık ve standart sapmasını döndürür. */
   function analyzeFrame(video) {
     try {
       if (!camCanvas) {
@@ -704,17 +673,8 @@
     })();
   }
 
-  /**
-   * Yüz izlemeyi başlatır.
-   * Model CDN'den yüklenir; internet yoksa veya CDN engelliyse önceden
-   * kadraj denetimi SESSİZCE devre dışı kalıyordu — öğrenciye "kadraj
-   * denetleniyor" yazıyor ama hiçbir şey kontrol edilmiyordu. Artık
-   * başarısızlık hem sunucuya bildirilir hem de ekranda görünür.
-   */
+  /** Kamera izlemeyi başlatır; yüz modeli varsa ek olarak kullanılır. */
   function initFaceWatch() {
-    // Örtme kontrolü dış bağımlılık istemez; model beklenmeden başlatılır.
-    // Önceden döngü yalnızca model yüklenirse kuruluyordu, bu yüzden CDN'e
-    // erişilemediğinde kamera denetimi tamamen sessiz kalıyordu.
     if (faceCheckInterval) clearInterval(faceCheckInterval);
     faceCheckInterval = setInterval(faceTick, FACE_CHECK_MS);
     setFaceWatchNotice("obscure-only");
@@ -726,8 +686,6 @@
         setFaceWatchNotice("obscure-only");
         if (!faceWatchUnavailableLogged) {
           faceWatchUnavailableLogged = true;
-          // İhlal DEĞİL: öğrencinin kusuru değil, altyapı eksikliği.
-          // Kamera örtme kontrolü çalışmaya devam ediyor.
           logProctor("face_watch_unavailable", false, { ua: navigator.userAgent }).catch(function () {});
         }
         return;
@@ -838,14 +796,7 @@
       .catch(function () {});
   }
 
-  /**
-   * Kopyala / kes / yapıştır / sağ tık / geliştirici araçları kısayolları.
-   *
-   * Önceki sürümde bunlar engelleniyordu ama YALNIZCA klavye yolu kayda
-   * geçiyordu: sağ tık menüsüyle veya orta tık ile yapıştırma sessizce
-   * engelleniyor, hiçbir iz bırakmıyordu. Ayrıca F12 / Ctrl+Shift+I gibi
-   * geliştirici araç kısayolları hiç ele alınmıyordu.
-   */
+  /** Kopyala / kes / yapıştır / sağ tık / geliştirici araçları kısayolları. */
   function hardBlockCopyPaste() {
     if (clipboardGuardInstalled) return;
     clipboardGuardInstalled = true;
@@ -1144,11 +1095,7 @@
     clearGraceModal();
     tabHiddenLatch = false;
 
-    /**
-     * Ctrl+Tab / sekme değişimi tarayıcıda her zaman engellenemez; sekme değişince
-     * document.hidden güvenilir biçimde true olur → ihlal kaydı.
-     * Alt+Tab ile başka uygulamaya geçiş de genelde sayfayı gizler (odak kaybı).
-     */
+    /** Sekme veya uygulama değişimini bir kez ihlal olarak kaydeder. */
     function logTabHiddenOnce(source) {
       if (!attempt || !attempt.attempt_id) return;
       if (tabHiddenLatch) return;
@@ -1320,9 +1267,7 @@
     if (!attempt || !attempt.attempt_id) return;
     exitExamSessionMode();
     clearGraceModal();
-    // Tüm yoklama döngüleri ve dinleyiciler burada durur. Önceden kamera
-    // yoklaması bir değişkende tutulmadığı için gönderimden sonra da
-    // çalışmaya devam ediyordu.
+    // Tüm yoklama döngüleri ve dinleyiciler burada durur.
     stopAllProctorWatchers();
     var btn = document.getElementById("submitBtn");
     if (btn) {
